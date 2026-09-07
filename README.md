@@ -52,10 +52,10 @@ observability/
 
 ## Baseline Agent (Phase 1 - Naive)
 
-`Issue → Large LLM (Groq llama-3.3-70b) → Repo exploration → Modify code → Run tests → Return patch`
+`Issue → Large LLM (Groq openai/gpt-oss-120b) → Repo exploration → Modify code → Run tests → Return patch`
 No RAG, routing, caching, or parallelization. Control group for ablation.
 
-LLM provider: **Groq** (`GROQ_API_KEY` + `GROQ_MODEL=llama-3.3-70b-versatile`, OpenAI-compatible via `https://api.groq.com/openai/v1`). Falls back to OpenAI if needed.
+LLM provider: **Groq** (`GROQ_API_KEY` + `GROQ_MODEL=openai/gpt-oss-120b`, OpenAI-compatible via `https://api.groq.com/openai/v1`). Falls back to OpenAI if needed.
 
 Mock mode: `LLM_MOCK=true` uses heuristic patcher so you can test E2E without API keys.
 
