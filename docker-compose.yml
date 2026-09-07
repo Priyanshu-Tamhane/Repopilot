@@ -1,0 +1,28 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./api:/app/api
+      - ./agents:/app/agents
+      - ./execution:/app/execution
+      - ./inference:/app/inference
+      - ./retrieval:/app/retrieval
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - SANDBOX_MODE=docker
+
+  # Future phases: redis, postgres, workers
+  # redis:
+  #   image: redis:7-alpine
+  #   ports: ["6379:6379"]
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_DB: repopilot
+  #     POSTGRES_USER: repopilot
+  #     POSTGRES_PASSWORD: repopilot
+  #   ports: ["5432:5432"]
