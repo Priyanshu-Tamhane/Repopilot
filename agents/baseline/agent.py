@@ -221,26 +221,27 @@ class BaselineAgent:
                     applied.append(path)
                 elif path and edit.get("action") == "heuristic_fix":
                     # mock provider's heuristic marker -> do regex fix
-                    self._heuristic_file_fix(repo_path, path, issue)
-                    applied.append(path + " (heuristic)")
+                    # remap test paths to source files; record only real changes
+                    resolved = _resolve_source_file(repo_path, path) or path
+                    if self._heuristic_file_fix(repo_path, resolved, issue):
+                        applied.append(resolved + " (heuristic)")
             if applied:
                 return applied
         except Exception:
             pass
 
         # Fallback: heuristic patch based on issue keywords
-        # Try to find mentioned file in issue or snapshot
+        # Try to find mentioned file in issue or snapshot (source files first)
         issue_lower = issue.lower()
-        candidate_files = list(repo_path.rglob("*.py"))
-        # Prefer file mentioned in issue
+        candidate_files = sorted(repo_path.rglob("*.py"), key=lambda p: p.as_posix())
+        non_test = [p for p in candidate_files if not _is_test_path(p.as_posix())]
         target_file = None
-        for cf in candidate_files:
+        for cf in non_test + candidate_files:  # source files take priority
             if cf.name.lower() in issue_lower or cf.stem.lower() in issue_lower:
                 target_file = cf
                 break
         if target_file is None and candidate_files:
             # pick first python file not in tests
-            non_test = [p for p in candidate_files if "test" not in p.name.lower()]
             target_file = non_test[0] if non_test else candidate_files[0]
 
         if target_file:
@@ -249,8 +250,8 @@ class BaselineAgent:
 
         return applied
 
-    def _heuristic_file_fix(self, repo_path: Path, rel_path: str, issue: str):
-        """Apply simple regex-based fixes for demo repos (calculator, etc.)"""
+    def _heuristic_file_fix(self, repo_path: Path, rel_path: str, issue: str) -> bool:
+        """Apply simple regex-based fixes for demo repos. Returns True if file changed."""
         target = repo_path / rel_path
         if not target.exists():
             # Try to find file by name
@@ -258,11 +259,11 @@ class BaselineAgent:
             if matches:
                 target = matches[0]
             else:
-                return
+                return False
         try:
             text = target.read_text(encoding="utf-8")
         except Exception:
-            return
+            return False
 
         original = text
         issue_lower = issue.lower()
@@ -308,9 +309,30 @@ class BaselineAgent:
         if "off-by-one" in issue_lower or "off by one" in issue_lower:
             text = re.sub(r"range\(len\(.*\)\s*-\s*1\)", "range(len(items))", text)
 
+        # Heuristic 3b: reverse/max/factorial/average (Phase 2 seed categories)
+        if "reverse" in issue_lower and re.search(r"def reverse\w*\(s\):", text):
+            text = re.sub(
+                r"(def reverse\w*\(s\):\s*\n\s*)return s\b",
+                r"\1return s[::-1]",
+                text,
+            )
+        if ("max" in issue_lower or "maximum" in issue_lower) and re.search(
+            r"def \w*max\w*\(.*?\):", text
+        ):
+            text = re.sub(r"return min\(", "return max(", text)
+        if "factorial" in issue_lower and "def factorial" in text:
+            text = re.sub(
+                r"(def factorial\(n\):\s*\n\s*if n == 0:\s*\n\s*)return 0",
+                r"\1return 1",
+                text,
+            )
+        if "average" in issue_lower and "def average" in text:
+            text = re.sub(r"len\((\w+)\)\s*\+\s*1", r"len(\1)", text)
+
         # Heuristic 4: if issue says "always returns None" or "returns wrong"
         # Ensure functions return something
-        if text != original:
+        changed = text != original
+        if changed:
             target.write_text(text, encoding="utf-8")
         else:
             # Last resort: if file has a TODO/FIXME and issue mentions it, try minimal fix
@@ -336,3 +358,33 @@ class BaselineAgent:
                     new_text = "\n".join(new_lines)
                     if new_text != text:
                         target.write_text(new_text, encoding="utf-8")
+                        changed = True
+        return changed
+
+
+def _is_test_path(path: str) -> bool:
+    parts = path.replace("\\", "/").split("/")
+    name = parts[-1].lower()
+    if name.startswith("test_") or name.endswith("_test.py") or name == "conftest.py":
+        return True
+    return any(p.lower() in ("tests", "test") for p in parts[:-1])
+
+
+def _resolve_source_file(repo_path: Path, rel_path: str) -> str | None:
+    """Map a test file path to its source file (test_foo.py -> foo.py)."""
+    if not _is_test_path(rel_path):
+        return rel_path
+    stem = Path(rel_path).stem  # e.g. test_text
+    for prefix, suffix in (("test_", ""), ("", "_test")):
+        candidate = stem
+        if prefix and candidate.startswith(prefix):
+            candidate = candidate[len(prefix):]
+        elif suffix and candidate.endswith(suffix):
+            candidate = candidate[: -len(suffix)]
+        else:
+            continue
+        for match in sorted(repo_path.rglob(candidate + ".py"), key=lambda p: p.as_posix()):
+            rel = match.relative_to(repo_path).as_posix()
+            if not _is_test_path(rel):
+                return rel
+    return None
