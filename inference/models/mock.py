@@ -36,12 +36,11 @@ class MockLLMProvider(LLMProvider):
     def _heuristic_response(self, prompt: str) -> str:
         # Try to infer requested file from prompt
         # Look for markers like "FILE: path/to/file.py"
-        files = re.findall(r"FILE:\s*([^\n]+)", prompt)
-        # If issue mentions calculator, addition, etc. - provide generic fix
-        issue_lower = prompt.lower()
+        files = [f.strip() for f in re.findall(r"FILE:\s*([^\n]+)", prompt)]
 
-        # Default: claim to fix the primary file
-        target_file = files[0].strip() if files else "calculator.py"
+        # Target the primary SOURCE file: never a test file (test_*.py, *_test.py, tests/)
+        non_test = [f for f in files if not _is_test_path(f)]
+        target_file = (non_test[0] if non_test else files[0]) if files else "calculator.py"
 
         # Try to produce a plausible JSON action
         # The baseline agent will interpret this; if not parseable, it uses regex fallback
@@ -57,3 +56,11 @@ class MockLLMProvider(LLMProvider):
             "tests_to_run": "pytest -q",
         }
         return json.dumps(plan, indent=2)
+
+
+def _is_test_path(path: str) -> bool:
+    parts = path.replace("\\", "/").split("/")
+    name = parts[-1].lower()
+    if name.startswith("test_") or name.endswith("_test.py") or name == "conftest.py":
+        return True
+    return any(p.lower() in ("tests", "test") for p in parts[:-1])

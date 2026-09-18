@@ -23,3 +23,6 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Benchmark outputs (regenerated per run, Phase 2)
+evaluation/results/

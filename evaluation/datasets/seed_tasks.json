@@ -1,0 +1,334 @@
+{
+  "name": "repopilot-seed",
+  "version": "1.0",
+  "tasks": [
+    {
+      "id": "T01",
+      "category": "add_negatives",
+      "issue": "Fix add() in calculator.py: returns wrong value for negative numbers, e.g. add(2, -3) gives 5 instead of -1.",
+      "files": {
+        "calculator.py": "def add(a, b):\n    # BUG: mishandles negatives\n    if b < 0:\n        return a - b\n    return a + b\n\ndef subtract(a, b):\n    return a - b\n"
+      },
+      "tests": {
+        "test_calc.py": "from calculator import add\n\ndef test_add_positive():\n    assert add(2, 3) == 5\n\ndef test_add_negative():\n    assert add(2, -3) == -1\n\ndef test_add_both_negative():\n    assert add(-2, -3) == -5\n"
+      },
+      "expected_behavior": "add(a, b) returns a + b for all signs",
+      "fail_to_pass": [
+        "test_add_negative",
+        "test_add_both_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T02",
+      "category": "add_negatives",
+      "issue": "Addition bug in math_utils.py: add() breaks when the second operand is negative. Please fix the addition logic.",
+      "files": {
+        "math_utils.py": "def add(a, b):\n    # BUG: mishandles negatives\n    if b < 0:\n        return a - b\n    return a + b\n\ndef is_even(n):\n    return n % 2 == 0\n"
+      },
+      "tests": {
+        "test_math_utils.py": "from math_utils import add\n\ndef test_add_positive():\n    assert add(2, 3) == 5\n\ndef test_add_negative():\n    assert add(2, -3) == -1\n\ndef test_add_both_negative():\n    assert add(-2, -3) == -5\n"
+      },
+      "expected_behavior": "add(a, b) returns a + b for all signs",
+      "fail_to_pass": [
+        "test_add_negative",
+        "test_add_both_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T03",
+      "category": "add_negatives",
+      "issue": "Fix issue: arithmetic/ops.py add() gives wrong result for negatives (add(10, -4) should be 6).",
+      "files": {
+        "arithmetic/ops.py": "def add(a, b):\n    # BUG: mishandles negatives\n    if b < 0:\n        return a - b\n    return a + b\n"
+      },
+      "tests": {
+        "tests/test_ops.py": "from arithmetic.ops import add\n\ndef test_add_negative():\n    assert add(10, -4) == 6\n\ndef test_add_positive():\n    assert add(10, 4) == 14\n"
+      },
+      "expected_behavior": "add(a, b) returns a + b for all signs",
+      "fail_to_pass": [
+        "test_add_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T04",
+      "category": "subtract",
+      "issue": "Fix subtract() in ops.py: it is not implemented (returns None). Should return a - b.",
+      "files": {
+        "ops.py": "def subtract(a, b):\n    pass\n"
+      },
+      "tests": {
+        "test_ops.py": "from ops import subtract\n\ndef test_subtract():\n    assert subtract(5, 3) == 2\n\ndef test_subtract_negative():\n    assert subtract(2, 5) == -3\n"
+      },
+      "expected_behavior": "subtract(a, b) returns a - b",
+      "fail_to_pass": [
+        "test_subtract",
+        "test_subtract_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T05",
+      "category": "subtract",
+      "issue": "Please fix: calculator subtract() raises NotImplementedError. Expected: subtract(10, 4) == 6.",
+      "files": {
+        "calc.py": "def subtract(a, b):\n    raise NotImplementedError('TODO')\n\n\ndef add(a, b):\n    return a + b\n"
+      },
+      "tests": {
+        "test_calc.py": "from calc import subtract\n\ndef test_subtract_basic():\n    assert subtract(10, 4) == 6\n"
+      },
+      "expected_behavior": "subtract(a, b) returns a - b",
+      "fail_to_pass": [
+        "test_subtract_basic"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T06",
+      "category": "multiply",
+      "issue": "Fix multiply() in ops.py: not implemented, returns None. Should return a * b.",
+      "files": {
+        "ops.py": "def multiply(a, b):\n    pass\n"
+      },
+      "tests": {
+        "test_ops.py": "from ops import multiply\n\ndef test_multiply():\n    assert multiply(3, 4) == 12\n\ndef test_multiply_negative():\n    assert multiply(-2, 5) == -10\n"
+      },
+      "expected_behavior": "multiply(a, b) returns a * b",
+      "fail_to_pass": [
+        "test_multiply",
+        "test_multiply_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T07",
+      "category": "multiply",
+      "issue": "Please fix: math multiply() raises NotImplementedError. Expected: multiply(6, 7) == 42.",
+      "files": {
+        "mathops.py": "def multiply(a, b):\n    raise NotImplementedError('TODO')\n"
+      },
+      "tests": {
+        "test_mathops.py": "from mathops import multiply\n\ndef test_multiply_basic():\n    assert multiply(6, 7) == 42\n"
+      },
+      "expected_behavior": "multiply(a, b) returns a * b",
+      "fail_to_pass": [
+        "test_multiply_basic"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T08",
+      "category": "divide_zero",
+      "issue": "Fix divide() in calc.py: divide by zero raises raw ZeroDivisionError with no message. Raise ZeroDivisionError('division by zero') for b == 0.",
+      "files": {
+        "calc.py": "def divide(a, b):\n    # BUG: silently returns 0 on zero division instead of raising\n    if b == 0:\n        return 0\n    return a / b\n"
+      },
+      "tests": {
+        "test_calc.py": "import pytest\nfrom calc import divide\n\ndef test_divide():\n    assert divide(8, 2) == 4\n\ndef test_divide_by_zero():\n    with pytest.raises(ZeroDivisionError):\n        divide(5, 0)\n"
+      },
+      "expected_behavior": "divide(a, b) returns a / b, raises ZeroDivisionError on b == 0",
+      "fail_to_pass": [
+        "test_divide_by_zero"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T09",
+      "category": "divide_zero",
+      "issue": "Please fix safe divide in math/div.py: divide(10, 0) must raise ZeroDivisionError instead of crashing ambiguously.",
+      "files": {
+        "math/div.py": "def divide(a, b):\n    # BUG: silently returns 0 on zero division instead of raising\n    if b == 0:\n        return 0\n    return a / b\n\ndef add(a, b):\n    return a + b\n"
+      },
+      "tests": {
+        "test_div.py": "import pytest\nfrom math.div import divide\n\ndef test_divide_zero_guarded():\n    with pytest.raises(ZeroDivisionError):\n        divide(10, 0)\n"
+      },
+      "expected_behavior": "divide(a, b) raises ZeroDivisionError on b == 0",
+      "fail_to_pass": [
+        "test_divide_zero_guarded"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T10",
+      "category": "off_by_one",
+      "issue": "Fix off-by-one in stats.py: total() skips the last element, total([1, 2, 3]) gives 3 instead of 6.",
+      "files": {
+        "stats.py": "def total(items):\n    s = 0\n    for i in range(len(items) - 1):\n        s += items[i]\n    return s\n"
+      },
+      "tests": {
+        "test_stats.py": "from stats import total\n\ndef test_total_all():\n    assert total([1, 2, 3]) == 6\n\ndef test_total_single():\n    assert total([7]) == 7\n"
+      },
+      "expected_behavior": "total() sums ALL elements",
+      "fail_to_pass": [
+        "test_total_all",
+        "test_total_single"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T11",
+      "category": "off_by_one",
+      "issue": "Off by one bug: count_all() in counter.py misses the last item. Fix so all elements are counted.",
+      "files": {
+        "counter.py": "def count_all(items):\n    c = 0\n    for i in range(len(items) - 1):\n        c += 1\n    return c\n"
+      },
+      "tests": {
+        "test_counter.py": "from counter import count_all\n\ndef test_count_all():\n    assert count_all([1, 2, 3, 4]) == 4\n"
+      },
+      "expected_behavior": "count_all() counts ALL elements",
+      "fail_to_pass": [
+        "test_count_all"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T12",
+      "category": "off_by_one",
+      "issue": "Fix off-by-one error in scores.py: sum_scores() drops the final score.",
+      "files": {
+        "scores.py": "def sum_scores(items):\n    s = 0\n    for i in range(len(items) - 1):\n        s += items[i]\n    return s\n"
+      },
+      "tests": {
+        "test_scores.py": "from scores import sum_scores\n\ndef test_sum_scores():\n    assert sum_scores([10, 20, 30]) == 60\n"
+      },
+      "expected_behavior": "sum_scores() sums ALL elements",
+      "fail_to_pass": [
+        "test_sum_scores"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T13",
+      "category": "reverse",
+      "issue": "Fix reverse_string() in text.py: it returns the input unchanged. reverse_string('hello') should be 'olleh'.",
+      "files": {
+        "text.py": "def reverse_string(s):\n    return s\n"
+      },
+      "tests": {
+        "test_text.py": "from text import reverse_string\n\ndef test_reverse_basic():\n    assert reverse_string('hello') == 'olleh'\n\ndef test_reverse_palindrome():\n    assert reverse_string('abc') == 'cba'\n"
+      },
+      "expected_behavior": "reverse_string(s) returns s reversed",
+      "fail_to_pass": [
+        "test_reverse_basic",
+        "test_reverse_palindrome"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T14",
+      "category": "reverse",
+      "issue": "Please fix string reverse helper in utils/strings.py: reverse_text('abcd') must give 'dcba'.",
+      "files": {
+        "utils/strings.py": "def reverse_text(s):\n    return s\n\n\ndef shout(s):\n    return s.upper()\n"
+      },
+      "tests": {
+        "test_strings.py": "from utils.strings import reverse_text\n\ndef test_reverse_text():\n    assert reverse_text('abcd') == 'dcba'\n"
+      },
+      "expected_behavior": "reverse_text(s) returns s reversed",
+      "fail_to_pass": [
+        "test_reverse_text"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T15",
+      "category": "reverse",
+      "issue": "Bug: reverse_words() in words.py does not reverse. Fix so reverse_words('hey') == 'yeh'.",
+      "files": {
+        "words.py": "def reverse_words(s):\n    return s\n"
+      },
+      "tests": {
+        "test_words.py": "from words import reverse_words\n\ndef test_reverse_words():\n    assert reverse_words('hey') == 'yeh'\n"
+      },
+      "expected_behavior": "reverse_words(s) returns s reversed",
+      "fail_to_pass": [
+        "test_reverse_words"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T16",
+      "category": "max_value",
+      "issue": "Fix find_max() in stats.py: it returns the minimum instead of the maximum. find_max([1, 9, 3]) should be 9.",
+      "files": {
+        "stats.py": "def find_max(nums):\n    return min(nums)\n"
+      },
+      "tests": {
+        "test_stats.py": "from stats import find_max\n\ndef test_find_max():\n    assert find_max([1, 9, 3]) == 9\n\ndef test_find_max_negative():\n    assert find_max([-5, -1, -3]) == -1\n"
+      },
+      "expected_behavior": "find_max(nums) returns the maximum",
+      "fail_to_pass": [
+        "test_find_max",
+        "test_find_max_negative"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T17",
+      "category": "max_value",
+      "issue": "Please fix maximum helper in numbers.py: max_value([4, 2, 8]) must be 8, currently returns 2.",
+      "files": {
+        "numbers.py": "def max_value(nums):\n    return min(nums)\n"
+      },
+      "tests": {
+        "test_numbers.py": "from numbers import max_value\n\ndef test_max_value():\n    assert max_value([4, 2, 8]) == 8\n"
+      },
+      "expected_behavior": "max_value(nums) returns the maximum",
+      "fail_to_pass": [
+        "test_max_value"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T18",
+      "category": "factorial",
+      "issue": "Fix factorial() in mathx.py: factorial(0) should be 1, currently returns 0.",
+      "files": {
+        "mathx.py": "def factorial(n):\n    if n == 0:\n        return 0\n    return n * factorial(n - 1)\n"
+      },
+      "tests": {
+        "test_mathx.py": "from mathx import factorial\n\ndef test_factorial_zero():\n    assert factorial(0) == 1\n\ndef test_factorial_five():\n    assert factorial(5) == 120\n"
+      },
+      "expected_behavior": "factorial(0) == 1, factorial(n) == n!",
+      "fail_to_pass": [
+        "test_factorial_zero",
+        "test_factorial_five"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T19",
+      "category": "factorial",
+      "issue": "Please fix recursive factorial in funcs.py: base case factorial(0) must equal 1.",
+      "files": {
+        "funcs.py": "def factorial(n):\n    if n == 0:\n        return 0\n    return n * factorial(n - 1)\n\ndef double(n):\n    return 2 * n\n"
+      },
+      "tests": {
+        "test_funcs.py": "from funcs import factorial\n\ndef test_factorial_base():\n    assert factorial(0) == 1\n"
+      },
+      "expected_behavior": "factorial(0) == 1",
+      "fail_to_pass": [
+        "test_factorial_base"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "T20",
+      "category": "average",
+      "issue": "Fix average() in stats.py: average([2, 4]) gives 2.0 instead of 3.0 (divides by n+1).",
+      "files": {
+        "stats.py": "def average(nums):\n    return sum(nums) / (len(nums) + 1)\n"
+      },
+      "tests": {
+        "test_stats.py": "from stats import average\n\ndef test_average():\n    assert average([2, 4]) == 3.0\n"
+      },
+      "expected_behavior": "average(nums) == sum(nums) / len(nums)",
+      "fail_to_pass": [
+        "test_average"
+      ],
+      "difficulty": "easy"
+    }
+  ]
+}
