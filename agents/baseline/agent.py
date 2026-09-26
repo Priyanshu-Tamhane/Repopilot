@@ -56,6 +56,9 @@ class BaselineAgent:
         api_key: str = "",
         provider: str = "mock",
         base_url: str = "https://api.groq.com/openai/v1",
+        use_retrieval: bool = False,
+        retrieval_top_k: int = 6,
+        retrieval_budget: int = 8000,
     ):
         self.workdir = workdir
         self.sandbox_mode = sandbox_mode
@@ -64,6 +67,9 @@ class BaselineAgent:
         self.api_key = api_key
         self.provider_name = provider
         self.base_url = base_url
+        self.use_retrieval = use_retrieval
+        self.retrieval_top_k = retrieval_top_k
+        self.retrieval_budget = retrieval_budget
         self.provider: LLMProvider = self._make_provider()
 
     def _make_provider(self) -> LLMProvider:
@@ -100,11 +106,32 @@ class BaselineAgent:
             tool_calls += 1
             trace.add_step("clone", (time.time() - t0) * 1000, detail=str(repo_path))
 
-            # 2. Explore: build snapshot
+            # 2. Explore: build snapshot or retrieval context
             t0 = time.time()
-            snapshot = get_file_snapshot(repo_path)
+            retrieval_info = None
+            if self.use_retrieval:
+                from retrieval.retriever import retrieve
+                from retrieval.indexer.indexer import build_index
+
+                idx = build_index(repo_path)
+                rr = retrieve(idx, issue, repo_path, top_k=self.retrieval_top_k, char_budget=self.retrieval_budget)
+                snapshot = rr.context
+                full_snapshot = get_file_snapshot(repo_path)
+                retrieval_info = {
+                    "candidate_files": rr.stats.get("candidate_files", []),
+                    "relevant_tests": rr.stats.get("relevant_tests", []),
+                    "context_chars": rr.stats.get("context_chars", 0),
+                    "full_snapshot_chars": len(full_snapshot),
+                    "ranked_chunks": rr.stats.get("ranked", 0),
+                    "scores": rr.scores[:3],
+                    "context_tokens_est": len(rr.context) // 4,
+                    "full_tokens_est": len(full_snapshot) // 4,
+                }
+                trace.add_step("retrieval", (time.time() - t0) * 1000, detail=str(retrieval_info))
+            else:
+                snapshot = get_file_snapshot(repo_path)
+                trace.add_step("explore", (time.time() - t0) * 1000, detail=f"snapshot chars={len(snapshot)}")
             tool_calls += 1
-            trace.add_step("explore", (time.time() - t0) * 1000, detail=f"snapshot chars={len(snapshot)}")
 
             # 3. LLM call
             prompt = _build_prompt(issue, snapshot)
@@ -154,6 +181,10 @@ class BaselineAgent:
                     success = True
                     passed = 1  # pseudo
 
+            trace.tool_calls = tool_calls
+            td = trace.to_dict()
+            if retrieval_info:
+                td["retrieval"] = retrieval_info
             return TaskResponse(
                 success=success,
                 patch=patch,
@@ -165,7 +196,7 @@ class BaselineAgent:
                 llm_calls=llm_calls,
                 tool_calls=tool_calls,
                 estimated_cost=round(estimated_cost, 4),
-                trace=trace.to_dict(),
+                trace=td,
                 error=None if success else f"Tests failed or no edits: {test_output[:2000]}",
             )
 

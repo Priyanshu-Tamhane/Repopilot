@@ -23,17 +23,21 @@ from evaluation.metrics.collector import BenchmarkMetrics, aggregate
 from evaluation.metrics.report import render_markdown
 
 
+def _resolve_llm(settings) -> tuple[str, str, str, str]:
+    if settings.groq_api_key:
+        return "groq", settings.groq_model, settings.groq_api_key, settings.groq_base_url
+    elif settings.llm_provider == "groq":
+        return "groq", settings.groq_model, settings.groq_api_key, settings.groq_base_url
+    else:
+        return settings.llm_provider, settings.openai_model, settings.openai_api_key, "https://api.openai.com/v1"
+
+
 def build_baseline_agent() -> BaselineAgent:
     """Default factory: mirrors execution/queue/manager.py provider priority (Groq first)."""
     from api.dependencies.config import get_settings
 
     settings = get_settings()
-    if settings.groq_api_key:
-        provider, model, api_key, base_url = "groq", settings.groq_model, settings.groq_api_key, settings.groq_base_url
-    elif settings.llm_provider == "groq":
-        provider, model, api_key, base_url = "groq", settings.groq_model, settings.groq_api_key, settings.groq_base_url
-    else:
-        provider, model, api_key, base_url = settings.llm_provider, settings.openai_model, settings.openai_api_key, "https://api.openai.com/v1"
+    provider, model, api_key, base_url = _resolve_llm(settings)
     return BaselineAgent(
         workdir=settings.workdir,
         sandbox_mode=settings.sandbox_mode,
@@ -42,6 +46,26 @@ def build_baseline_agent() -> BaselineAgent:
         api_key=api_key,
         provider=provider,
         base_url=base_url,
+    )
+
+
+def build_retrieval_agent(top_k: int = 6, char_budget: int = 8000) -> BaselineAgent:
+    """Factory for Exp2 — same LLM but with RAG retrieval enabled."""
+    from api.dependencies.config import get_settings
+
+    settings = get_settings()
+    provider, model, api_key, base_url = _resolve_llm(settings)
+    return BaselineAgent(
+        workdir=settings.workdir,
+        sandbox_mode=settings.sandbox_mode,
+        use_mock=settings.llm_mock,
+        model=model,
+        api_key=api_key,
+        provider=provider,
+        base_url=base_url,
+        use_retrieval=True,
+        retrieval_top_k=top_k,
+        retrieval_budget=char_budget,
     )
 
 

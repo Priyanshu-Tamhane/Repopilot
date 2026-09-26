@@ -115,14 +115,15 @@ def _run_tests_docker(repo_path: Path) -> tuple[int, int, str]:
     try:
         import docker  # type: ignore
 
+        import os
+
         client = docker.from_env()
         # Run python:3.11-slim with mount
-        # Use absolute posix path; on Windows need conversion
-        host_path = str(repo_path.resolve())
-        # Docker on Windows expects //c/... style, but docker sdk handles it
+        # Resolve realpath to expand any Windows 8.3 short paths (e.g. PRIYAN~1)
+        host_path = os.path.realpath(str(repo_path))
         output = client.containers.run(
             "python:3.11-slim",
-            command="bash -c 'pip install -q pytest && pytest -q'",
+            command="bash -c 'pip install -q pytest && (pytest -q || true)'",
             volumes={host_path: {"bind": "/repo", "mode": "rw"}},
             working_dir="/repo",
             remove=True,

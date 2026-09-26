@@ -26,3 +26,5 @@ Thumbs.db
 
 # Benchmark outputs (regenerated per run, Phase 2)
 evaluation/results/
+
+demo_repo
