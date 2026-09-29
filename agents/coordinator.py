@@ -14,14 +14,19 @@ from agents.tester import TesterAgent
 from api.schemas.tasks import TaskResponse
 from execution.docker.sandbox import prepare_sandbox
 from inference.models.base import LLMProvider
+from inference.router.router import ModelRouter, ModelTier, RoutingDecision
 from inference.telemetry.metrics import TaskTrace
 
 
 class MultiAgentCoordinator:
-    """Phase 4 Multi-Agent Coordinator.
+    """Phase 4 & 5 Multi-Agent Coordinator.
 
     Orchestrates the collaborative team of 6 specialized agents:
       Planner -> Researcher -> [Implementer <-> Tester <-> Debugger] -> Reviewer
+
+    Phase 5 adds:
+      - Dynamic Model Routing: classifies task complexity and routes to CHEAP vs HEAVY LLM tier
+      - Cascade Escalation: escalates to HEAVY tier if CHEAP tier fails tests during repair loop
 
     Maintains full signature parity with BaselineAgent.run() -> TaskResponse.
     """
@@ -36,6 +41,9 @@ class MultiAgentCoordinator:
         provider: str = "mock",
         base_url: str = "https://api.groq.com/openai/v1",
         max_retries: int = 3,
+        model_routing: bool = False,
+        cheap_model: Optional[str] = None,
+        heavy_model: Optional[str] = None,
     ):
         self.workdir = workdir
         self.sandbox_mode = sandbox_mode
@@ -45,8 +53,17 @@ class MultiAgentCoordinator:
         self.provider_name = provider
         self.base_url = base_url
         self.max_retries = max_retries
+        self.model_routing = model_routing
+        self.cheap_model = cheap_model or ("mock-gpt-4o-mini-cheap" if use_mock else "openai/gpt-oss-20b")
+        self.heavy_model = heavy_model or ("mock-gpt-4o-mini" if use_mock else model)
 
-        self.provider: LLMProvider = self._make_provider()
+        self.router = ModelRouter(
+            cheap_model=self.cheap_model,
+            heavy_model=self.heavy_model,
+            use_mock=self.use_mock,
+        )
+
+        self.provider: LLMProvider = self._make_provider_for_model(self.model)
 
         # Initialize the 6 sub-agents
         self.planner = PlannerAgent(self.provider)
@@ -56,19 +73,22 @@ class MultiAgentCoordinator:
         self.debugger = DebuggerAgent(self.provider)
         self.reviewer = ReviewerAgent(self.provider)
 
-    def _make_provider(self) -> LLMProvider:
+    def _make_provider_for_model(self, model_name: str) -> LLMProvider:
         if self.use_mock or not self.api_key:
             from inference.models.mock import MockLLMProvider
 
-            return MockLLMProvider()
+            return MockLLMProvider(model_name=model_name)
         if self.provider_name in ("groq", "llama", "mixtral", "gemma"):
             from inference.models.groq_provider import GroqProvider
 
-            return GroqProvider(api_key=self.api_key, model=self.model, base_url=self.base_url)
+            return GroqProvider(api_key=self.api_key, model=model_name, base_url=self.base_url)
         else:
             from inference.models.openai_provider import OpenAIProvider
 
-            return OpenAIProvider(api_key=self.api_key, model=self.model)
+            return OpenAIProvider(api_key=self.api_key, model=model_name)
+
+    def _make_provider(self) -> LLMProvider:
+        return self._make_provider_for_model(self.model)
 
     async def run(self, repository: str, issue: str) -> TaskResponse:
         start_time = time.time()
@@ -103,6 +123,23 @@ class MultiAgentCoordinator:
             print(f"[Multi-Agent] 2/4 Researching repository files via AST & TF-IDF...")
             await self.researcher.run(state)
 
+            # Dynamic Model Routing (Phase 5)
+            routing_decision: Optional[RoutingDecision] = None
+            if self.model_routing:
+                routing_decision = self.router.route(
+                    issue=state.issue,
+                    context=state.research_context,
+                    candidate_files=state.candidate_files,
+                )
+                print(
+                    f"[Multi-Agent] Dynamic Model Routing -> {routing_decision.tier.value.upper()} tier "
+                    f"({routing_decision.model_name}) | score={routing_decision.complexity_score:.2f}"
+                )
+                routed_provider = self._make_provider_for_model(routing_decision.model_name)
+                self.implementer.provider = routed_provider
+                self.debugger.provider = routed_provider
+                state.trace.add_step("routing", 0, detail=routing_decision.reason)
+
             # 4. Stage 3: Implementation, Testing & Debugger Feedback Loop
             print(f"[Multi-Agent] 3/4 Implementation & self-correction loop (max {self.max_retries} retries)...")
             for iteration in range(1, self.max_retries + 1):
@@ -122,6 +159,23 @@ class MultiAgentCoordinator:
                     break
 
                 if iteration < self.max_retries:
+                    # Cascade Escalation: escalate to HEAVY tier on test failure if currently CHEAP
+                    if (
+                        self.model_routing
+                        and routing_decision
+                        and routing_decision.tier == ModelTier.CHEAP
+                        and not routing_decision.escalated
+                    ):
+                        print(f"[Multi-Agent]   -> Escalating to HEAVY tier after test failure...")
+                        routing_decision = self.router.escalate(
+                            routing_decision,
+                            failure_reason=test_result.get("output", "")[:100],
+                        )
+                        escalated_provider = self._make_provider_for_model(routing_decision.model_name)
+                        self.implementer.provider = escalated_provider
+                        self.debugger.provider = escalated_provider
+                        state.trace.add_step("escalate", 0, detail=routing_decision.reason)
+
                     print(f"[Multi-Agent]   -> Tests failed. Invoking Debugger to diagnose...")
                     hint = await self.debugger.run(state)
                     print(f"[Multi-Agent]   -> Debugger advice: {hint[:100]}...")
@@ -144,6 +198,15 @@ class MultiAgentCoordinator:
                 "review_notes": state.review_notes,
                 "candidate_files": state.candidate_files,
             }
+            if routing_decision:
+                td["routing"] = {
+                    "initial_tier": "cheap" if routing_decision.escalated else routing_decision.tier.value,
+                    "final_tier": routing_decision.tier.value,
+                    "model_name": routing_decision.model_name,
+                    "complexity_score": routing_decision.complexity_score,
+                    "escalated": routing_decision.escalated,
+                    "reason": routing_decision.reason,
+                }
 
             return TaskResponse(
                 success=success,

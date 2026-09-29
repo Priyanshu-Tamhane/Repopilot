@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     # Groq (primary for this project)
     groq_api_key: str = ""
     groq_model: str = "openai/gpt-oss-120b"
+    groq_cheap_model: str = "openai/gpt-oss-20b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
+    model_routing: bool = False
     # OpenAI (kept for backward compat)
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"

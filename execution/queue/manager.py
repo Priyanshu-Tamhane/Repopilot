@@ -58,7 +58,7 @@ class TaskManager:
                 api_key = settings.openai_api_key
                 base_url = "https://api.openai.com/v1"
 
-            if agent_type == "multi":
+            if agent_type in ("multi", "multi_agent"):
                 from agents.coordinator import MultiAgentCoordinator
 
                 agent = MultiAgentCoordinator(
@@ -69,6 +69,9 @@ class TaskManager:
                     api_key=api_key,
                     provider=provider,
                     base_url=base_url,
+                    model_routing=settings.model_routing,
+                    cheap_model=settings.groq_cheap_model,
+                    heavy_model=model,
                 )
             else:
                 from agents.baseline.agent import BaselineAgent
@@ -81,6 +84,9 @@ class TaskManager:
                     api_key=api_key,
                     provider=provider,
                     base_url=base_url,
+                    model_routing=settings.model_routing,
+                    cheap_model=settings.groq_cheap_model,
+                    heavy_model=model,
                 )
             result = await agent.run(repository, issue)
             result.trace = result.trace or {}

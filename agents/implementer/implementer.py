@@ -41,6 +41,21 @@ class ImplementerAgent:
             applied = self._mock_implementation(state)
             state.edits_applied = applied
             state.tool_calls += len(applied)
+            # Record simulated LLM call so telemetry & cost routing reflect model tier in benchmarks
+            prompt_len = len(state.issue) + len(state.research_context) + 500
+            sim_in = max(1, prompt_len // 4)
+            sim_out = max(1, sum(len(a) for a in applied) * 20 + 200)
+            cost = self.provider.estimate_cost(sim_in, sim_out)
+            from inference.models.base import LLMResponse
+
+            sim_resp = LLMResponse(
+                content="[mock implementer patch]",
+                input_tokens=sim_in,
+                output_tokens=sim_out,
+                model=getattr(self.provider, "model_name", "mock"),
+                latency_ms=(time.time() - t0) * 1000,
+            )
+            state.record_llm_call(sim_resp, cost, step_name=f"implementer_iter_{state.iteration}")
             state.trace.add_step(
                 f"implementer_iter_{state.iteration}",
                 (time.time() - t0) * 1000,

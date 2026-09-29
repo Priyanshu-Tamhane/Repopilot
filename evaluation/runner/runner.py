@@ -88,6 +88,48 @@ def build_multi_agent(max_retries: int = 3) -> Any:
     )
 
 
+def build_routed_agent(multi_agent: bool = True, max_retries: int = 3, top_k: int = 6) -> Any:
+    """Factory for Exp4 — Phase 5 Model Routing & Cost Optimization."""
+    from api.dependencies.config import get_settings
+
+    settings = get_settings()
+    provider, model, api_key, base_url = _resolve_llm(settings)
+    cheap_model = settings.groq_cheap_model if not settings.llm_mock else "mock-gpt-4o-mini-cheap"
+    heavy_model = model if not settings.llm_mock else "mock-gpt-4o-mini"
+
+    if multi_agent:
+        from agents.coordinator import MultiAgentCoordinator
+
+        return MultiAgentCoordinator(
+            workdir=settings.workdir,
+            sandbox_mode=settings.sandbox_mode,
+            use_mock=settings.llm_mock,
+            model=model,
+            api_key=api_key,
+            provider=provider,
+            base_url=base_url,
+            max_retries=max_retries,
+            model_routing=True,
+            cheap_model=cheap_model,
+            heavy_model=heavy_model,
+        )
+    else:
+        return BaselineAgent(
+            workdir=settings.workdir,
+            sandbox_mode=settings.sandbox_mode,
+            use_mock=settings.llm_mock,
+            model=model,
+            api_key=api_key,
+            provider=provider,
+            base_url=base_url,
+            use_retrieval=True,
+            retrieval_top_k=top_k,
+            model_routing=True,
+            cheap_model=cheap_model,
+            heavy_model=heavy_model,
+        )
+
+
 class BenchmarkRunner:
     def __init__(
         self,

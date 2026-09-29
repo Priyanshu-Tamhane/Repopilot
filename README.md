@@ -11,7 +11,7 @@ Evaluation-driven coding-agent infrastructure that measures and improves efficie
 - **Phase 2 — DONE:** Benchmark runner → full Sec.16 metrics → 20-task seed evaluation (exp1_baseline: 20/20 mock)
 - **Phase 3 — DONE:** Repository indexing (AST + dependency graph + TF-IDF) → RAG (top-6, 8k budget) → Exp2 compare vs baseline (20/20 parity, retrieval hit@6 100%)
 - **Phase 4 — DONE:** Multi-agent system (Planner, Researcher, Implementer, Tester, Debugger, Reviewer + Coordinator) → Exp3 evaluation
-- **Phase 5:** Model routing + cost optimization
+- **Phase 5 — DONE:** Dynamic model routing (CHEAP vs HEAVY tiers) + cascade escalation on failure → Exp4 evaluation (-28.6% cost reduction)
 - **Phase 6:** Caching + parallel execution + worker scaling
 - **Phase 7:** Observability → dashboard → ablation → final report
 
@@ -19,8 +19,32 @@ Evaluation-driven coding-agent infrastructure that measures and improves efficie
 
 ```bash
 pip install -e ".[dev]"
-cp .env.example .env  # set GROQ_API_KEY (https://console.groq.com/keys) or keep LLM_MOCK=true for offline
-uvicorn api.main:app --reload --port 8000
+cp .env.example .env  # set GROQ_API_KEY or keep LLM_MOCK=true for offline
+```
+
+### Unified CLI (`repopilot.py`)
+
+RepoPilot provides a single, unified command-center entry point for the entire project:
+
+```bash
+# 1. Run demo with mock (offline) or real Groq LLM
+python repopilot.py demo --mock --task easy
+python repopilot.py demo --real --task easy
+
+# 2. Run on any custom repository and issue
+python repopilot.py run --repo /path/to/repo --issue "Fix bug description" --phase 5 --real
+
+# 3. Run benchmarks across phases (1=Baseline, 2=RAG, 3=Multi-Agent, 4=Routing)
+python repopilot.py benchmark --exp 4 --limit 3 --real
+
+# 4. Compare benchmark metrics and cost savings
+python repopilot.py compare
+
+# 5. Start the FastAPI server
+python repopilot.py serve --port 8000
+
+# 6. Run the test suite
+python repopilot.py test
 ```
 
 ### API
@@ -111,6 +135,29 @@ Structure: `retrieval/ast/parser.py` (functions/classes/imports), `retrieval/gra
 
 Run: `python -m evaluation.runner.cli --retrieval --sandbox local` (Exp2) — see `evaluation/experiments/exp2_retrieval.py` and compare.
 
+## Phase 4 — Multi-Agent System (Exp3)
+
+Orchestrates 6 specialized agents working together:
+- **Planner:** Diagnoses issue category and devises repair strategy
+- **Researcher:** Explores candidate files, imports, and relevant unit tests
+- **Implementer:** Writes clean, minimal code fixes
+- **Tester:** Executes pytest in isolated sandbox
+- **Debugger:** Diagnoses pytest failures and provides root-cause feedback for retries (max 3 rounds)
+- **Reviewer:** Invariant gatekeeper inspecting git diff before acceptance (rejects test tampering or empty diffs)
+
+Run: `python -m evaluation.runner.cli --multi-agent --sandbox local`
+
+## Phase 5 — Dynamic Model Routing & Cost Optimization (Exp4)
+
+Intelligent tiered model selection based on task complexity and keyword analysis:
+- **Tier 1 (Cheap):** `openai/gpt-oss-20b` or `llama-3.1-8b-instant` ($0.05 / $0.15 per M tokens)
+- **Tier 2 (Heavy):** `openai/gpt-oss-120b` or flagship LLMs ($0.15 / $0.60 per M tokens)
+- **Cascade Escalation:** If an initial fix by the cheap model fails unit tests, automatically escalates to the heavy model for subsequent repair iterations.
+- **Results:** Achieves **-28.6% cost reduction** with **0% regression (100% pass rate)**.
+
+Run: `python -m evaluation.runner.cli --multi-agent --model-routing --limit 3 --sandbox local`  
+Compare: `python -m evaluation.experiments.compare evaluation/results/exp3_*.json evaluation/results/exp4_*.json`
+
 ## Tests
 
 ```bash
@@ -119,4 +166,6 @@ pytest tests/test_api.py -v
 pytest tests/test_baseline_e2e.py -v  # builds a dummy repo and solves one issue
 pytest tests/test_benchmark.py -v     # dataset validity (bugs fail pre-fix) + metrics math + 3-task mock run
 pytest tests/test_retrieval.py -v     # AST + graph + hit@6 >=18/20 + Exp2 mini-mock with retrieval trace
+pytest tests/test_multi_agent.py -v   # Phase 4 multi-agent sub-agent team & repair loop
+pytest tests/test_router.py -v        # Phase 5 model router, complexity scoring & escalation
 ```

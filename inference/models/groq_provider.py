@@ -63,7 +63,8 @@ class GroqProvider(LLMProvider):
             "llama-3.1-8b-instant": (0.05, 0.08),
             "mixtral-8x7b-32768": (0.24, 0.24),
             "gemma2-9b-it": (0.20, 0.20),
-            "openai/gpt-oss-120b" : (0.15,0.60)
+            "openai/gpt-oss-120b": (0.15, 0.60),
+            "openai/gpt-oss-20b": (0.05, 0.15),
         }
         inp, out = pricing.get(self.model_name, (0.59, 0.79))
         return (input_tokens * inp + output_tokens * out) / 1_000_000

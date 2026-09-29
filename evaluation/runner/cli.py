@@ -11,12 +11,13 @@ from evaluation.runner.runner import (
     build_baseline_agent,
     build_multi_agent,
     build_retrieval_agent,
+    build_routed_agent,
     run_experiment,
 )
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="RepoPilot benchmark runner (Phase 2 & 4)")
+    ap = argparse.ArgumentParser(description="RepoPilot benchmark runner (Phases 2, 4, 5)")
     ap.add_argument("--limit", type=int, default=None, help="max tasks to run")
     ap.add_argument("--output-dir", default="evaluation/results")
     ap.add_argument("--sandbox", default=None, help="auto|docker|local (default: agent settings)")
@@ -25,12 +26,17 @@ def main() -> None:
     ap.add_argument("--experiment", default=EXPERIMENT["name"])
     ap.add_argument("--retrieval", action="store_true", help="enable RAG retrieval (Exp2)")
     ap.add_argument("--multi-agent", action="store_true", help="enable Phase 4 multi-agent system (Exp3)")
+    ap.add_argument("--model-routing", action="store_true", help="enable Phase 5 dynamic model routing (Exp4)")
     ap.add_argument("--retries", type=int, default=3, help="max repair retries for multi-agent")
     ap.add_argument("--top-k", type=int, default=6)
     args = ap.parse_args()
 
     dataset = load_json(args.dataset) if args.dataset else build_dataset()
-    if args.multi_agent:
+    if args.model_routing:
+        if args.experiment == EXPERIMENT["name"]:
+            args.experiment = "exp4_routing"
+        factory = lambda: build_routed_agent(multi_agent=args.multi_agent, max_retries=args.retries, top_k=args.top_k)
+    elif args.multi_agent:
         if args.experiment == EXPERIMENT["name"]:
             args.experiment = "exp3_multi_agent"
         factory = lambda: build_multi_agent(max_retries=args.retries)

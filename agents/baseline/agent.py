@@ -59,6 +59,9 @@ class BaselineAgent:
         use_retrieval: bool = False,
         retrieval_top_k: int = 6,
         retrieval_budget: int = 8000,
+        model_routing: bool = False,
+        cheap_model: Optional[str] = None,
+        heavy_model: Optional[str] = None,
     ):
         self.workdir = workdir
         self.sandbox_mode = sandbox_mode
@@ -70,22 +73,36 @@ class BaselineAgent:
         self.use_retrieval = use_retrieval
         self.retrieval_top_k = retrieval_top_k
         self.retrieval_budget = retrieval_budget
-        self.provider: LLMProvider = self._make_provider()
+        self.model_routing = model_routing
+        self.cheap_model = cheap_model or ("mock-gpt-4o-mini-cheap" if use_mock else "openai/gpt-oss-20b")
+        self.heavy_model = heavy_model or ("mock-gpt-4o-mini" if use_mock else model)
 
-    def _make_provider(self) -> LLMProvider:
+        from inference.router.router import ModelRouter
+        self.router = ModelRouter(
+            cheap_model=self.cheap_model,
+            heavy_model=self.heavy_model,
+            use_mock=self.use_mock,
+        )
+
+        self.provider: LLMProvider = self._make_provider_for_model(self.model)
+
+    def _make_provider_for_model(self, model_name: str) -> LLMProvider:
         if self.use_mock or not self.api_key:
             from inference.models.mock import MockLLMProvider
 
-            return MockLLMProvider()
+            return MockLLMProvider(model_name=model_name)
         # Groq is primary for this project
         if self.provider_name in ("groq", "llama", "mixtral", "gemma"):
             from inference.models.groq_provider import GroqProvider
 
-            return GroqProvider(api_key=self.api_key, model=self.model, base_url=self.base_url)
+            return GroqProvider(api_key=self.api_key, model=model_name, base_url=self.base_url)
         else:
             from inference.models.openai_provider import OpenAIProvider
 
-            return OpenAIProvider(api_key=self.api_key, model=self.model)
+            return OpenAIProvider(api_key=self.api_key, model=model_name)
+
+    def _make_provider(self) -> LLMProvider:
+        return self._make_provider_for_model(self.model)
 
     async def run(self, repository: str, issue: str):
         from api.schemas.tasks import TaskResponse
@@ -133,22 +150,30 @@ class BaselineAgent:
                 trace.add_step("explore", (time.time() - t0) * 1000, detail=f"snapshot chars={len(snapshot)}")
             tool_calls += 1
 
-            # 3. LLM call
+            # 3. Dynamic Model Routing & LLM call
+            active_provider = self.provider
+            routing_decision = None
+            if self.model_routing:
+                candidate_files = retrieval_info.get("candidate_files", []) if retrieval_info else []
+                routing_decision = self.router.route(issue=issue, context=snapshot, candidate_files=candidate_files)
+                active_provider = self._make_provider_for_model(routing_decision.model_name)
+                trace.add_step("routing", 0, detail=routing_decision.reason)
+
             prompt = _build_prompt(issue, snapshot)
             system = SYSTEM_PROMPT
             t0 = time.time()
-            resp = await self.provider.generate(prompt, system=system)
+            resp = await active_provider.generate(prompt, system=system)
             llm_calls += 1
             input_tokens += resp.input_tokens
             output_tokens += resp.output_tokens
-            estimated_cost += self.provider.estimate_cost(resp.input_tokens, resp.output_tokens)
+            estimated_cost += active_provider.estimate_cost(resp.input_tokens, resp.output_tokens)
             trace.llm_calls.append(
                 __import__("inference.telemetry.metrics", fromlist=["LLMCallRecord"]).LLMCallRecord(
                     model=resp.model,
                     input_tokens=resp.input_tokens,
                     output_tokens=resp.output_tokens,
                     latency_ms=resp.latency_ms,
-                    cost=self.provider.estimate_cost(resp.input_tokens, resp.output_tokens),
+                    cost=active_provider.estimate_cost(resp.input_tokens, resp.output_tokens),
                     success=resp.success,
                 )
             )
@@ -185,6 +210,13 @@ class BaselineAgent:
             td = trace.to_dict()
             if retrieval_info:
                 td["retrieval"] = retrieval_info
+            if routing_decision:
+                td["routing"] = {
+                    "tier": routing_decision.tier.value,
+                    "model": routing_decision.model_name,
+                    "complexity_score": routing_decision.complexity_score,
+                    "reason": routing_decision.reason,
+                }
             return TaskResponse(
                 success=success,
                 patch=patch,

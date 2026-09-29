@@ -14,7 +14,16 @@ class MockLLMProvider(LLMProvider):
     heuristic file edits if JSON parsing fails.
     """
 
-    model_name = "mock-gpt-4o-mini"
+    def __init__(self, model_name: str = "mock-gpt-4o-mini"):
+        self.model_name = model_name
+
+    def estimate_cost(self, input_tokens: int, output_tokens: int) -> float:
+        # Tiered pricing for offline mock benchmark comparisons
+        if "cheap" in self.model_name or "20b" in self.model_name or "8b" in self.model_name:
+            inp, out = 0.05, 0.15
+        else:
+            inp, out = 0.15, 0.60
+        return (input_tokens * inp + output_tokens * out) / 1_000_000
 
     async def generate(self, prompt: str, system: str = "", max_tokens: int = 2048) -> LLMResponse:
         start = time.time()
