@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class TaskRequest(BaseModel):
     repository: str = Field(..., description="GitHub URL or local path to repo")
     issue: str = Field(..., description="Issue description, e.g. 'Fix issue #123'")
+    agent_type: Optional[str] = Field("baseline", description="Agent architecture: 'baseline' | 'multi'")
 
 
 class TaskResponse(BaseModel):

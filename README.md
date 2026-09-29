@@ -10,7 +10,7 @@ Evaluation-driven coding-agent infrastructure that measures and improves efficie
 - **Phase 1 — DONE:** FastAPI → GitHub loader → Docker sandbox → single-agent baseline → solve one issue
 - **Phase 2 — DONE:** Benchmark runner → full Sec.16 metrics → 20-task seed evaluation (exp1_baseline: 20/20 mock)
 - **Phase 3 — DONE:** Repository indexing (AST + dependency graph + TF-IDF) → RAG (top-6, 8k budget) → Exp2 compare vs baseline (20/20 parity, retrieval hit@6 100%)
-- **Phase 4:** Multi-agent system
+- **Phase 4 — DONE:** Multi-agent system (Planner, Researcher, Implementer, Tester, Debugger, Reviewer + Coordinator) → Exp3 evaluation
 - **Phase 5:** Model routing + cost optimization
 - **Phase 6:** Caching + parallel execution + worker scaling
 - **Phase 7:** Observability → dashboard → ablation → final report

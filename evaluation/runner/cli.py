@@ -6,11 +6,17 @@ import asyncio
 
 from evaluation.datasets.seed import build_dataset, load_json
 from evaluation.experiments.exp1_baseline import EXPERIMENT
-from evaluation.runner.runner import BenchmarkRunner, build_baseline_agent, build_retrieval_agent, run_experiment
+from evaluation.runner.runner import (
+    BenchmarkRunner,
+    build_baseline_agent,
+    build_multi_agent,
+    build_retrieval_agent,
+    run_experiment,
+)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="RepoPilot benchmark runner (Phase 2)")
+    ap = argparse.ArgumentParser(description="RepoPilot benchmark runner (Phase 2 & 4)")
     ap.add_argument("--limit", type=int, default=None, help="max tasks to run")
     ap.add_argument("--output-dir", default="evaluation/results")
     ap.add_argument("--sandbox", default=None, help="auto|docker|local (default: agent settings)")
@@ -18,11 +24,17 @@ def main() -> None:
     ap.add_argument("--dataset", default=None, help="path to dataset JSON (default: seed)")
     ap.add_argument("--experiment", default=EXPERIMENT["name"])
     ap.add_argument("--retrieval", action="store_true", help="enable RAG retrieval (Exp2)")
+    ap.add_argument("--multi-agent", action="store_true", help="enable Phase 4 multi-agent system (Exp3)")
+    ap.add_argument("--retries", type=int, default=3, help="max repair retries for multi-agent")
     ap.add_argument("--top-k", type=int, default=6)
     args = ap.parse_args()
 
     dataset = load_json(args.dataset) if args.dataset else build_dataset()
-    if args.retrieval:
+    if args.multi_agent:
+        if args.experiment == EXPERIMENT["name"]:
+            args.experiment = "exp3_multi_agent"
+        factory = lambda: build_multi_agent(max_retries=args.retries)
+    elif args.retrieval:
         # Use retrieval factory; override experiment name if default
         if args.experiment == EXPERIMENT["name"]:
             args.experiment = "exp2_retrieval"

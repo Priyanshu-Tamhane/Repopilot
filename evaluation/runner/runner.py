@@ -69,10 +69,29 @@ def build_retrieval_agent(top_k: int = 6, char_budget: int = 8000) -> BaselineAg
     )
 
 
+def build_multi_agent(max_retries: int = 3) -> Any:
+    """Factory for Exp3 — Phase 4 Multi-Agent system."""
+    from agents.coordinator import MultiAgentCoordinator
+    from api.dependencies.config import get_settings
+
+    settings = get_settings()
+    provider, model, api_key, base_url = _resolve_llm(settings)
+    return MultiAgentCoordinator(
+        workdir=settings.workdir,
+        sandbox_mode=settings.sandbox_mode,
+        use_mock=settings.llm_mock,
+        model=model,
+        api_key=api_key,
+        provider=provider,
+        base_url=base_url,
+        max_retries=max_retries,
+    )
+
+
 class BenchmarkRunner:
     def __init__(
         self,
-        agent_factory: Callable[[], BaselineAgent] = build_baseline_agent,
+        agent_factory: Callable[[], Any] = build_baseline_agent,
         sandbox_mode: Optional[str] = None,  # None = use agent default
         timeout_s: float = 300.0,
     ):

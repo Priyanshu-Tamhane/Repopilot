@@ -93,3 +93,21 @@ def test_post_tasks_local_repo():
         assert data["success"] is True
         assert data["patch"] != ""
         assert data["llm_calls"] >= 1
+
+
+def test_post_tasks_multi_agent():
+    with tempfile.TemporaryDirectory() as td:
+        repo = _make_dummy_repo(Path(td))
+        payload = {
+            "repository": str(repo),
+            "issue": "Fix add() in calculator.py: it returns wrong value for negative numbers",
+            "agent_type": "multi",
+        }
+        resp = client.post("/tasks", json=payload)
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["success"] is True
+        assert data["tests_passed"] >= 1
+        assert data["tests_failed"] == 0
+        assert data["patch"] != ""
+        assert "multi_agent" in data.get("trace", {})

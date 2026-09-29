@@ -17,5 +17,5 @@ async def create_task(payload: TaskRequest):
     Phase 6: will enqueue to Redis + workers
     """
     manager = get_task_manager()
-    result = await manager.submit(payload.repository, payload.issue)
+    result = await manager.submit(payload.repository, payload.issue, agent_type=payload.agent_type or "baseline")
     return result

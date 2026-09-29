@@ -29,7 +29,7 @@ class TaskManager:
     def __init__(self):
         self.tasks: dict[str, TaskRecord] = {}
 
-    async def submit(self, repository: str, issue: str) -> TaskResponse:
+    async def submit(self, repository: str, issue: str, agent_type: str = "baseline") -> TaskResponse:
         task_id = uuid.uuid4().hex[:12]
         record = TaskRecord(task_id=task_id, repository=repository, issue=issue, status="queued")
         self.tasks[task_id] = record
@@ -38,7 +38,6 @@ class TaskManager:
         record.status = "running"
         try:
             # Import here to avoid circular
-            from agents.baseline.agent import BaselineAgent
             from api.dependencies.config import get_settings
 
             settings = get_settings()
@@ -58,15 +57,31 @@ class TaskManager:
                 model = settings.openai_model
                 api_key = settings.openai_api_key
                 base_url = "https://api.openai.com/v1"
-            agent = BaselineAgent(
-                workdir=settings.workdir,
-                sandbox_mode=settings.sandbox_mode,
-                use_mock=settings.llm_mock,
-                model=model,
-                api_key=api_key,
-                provider=provider,
-                base_url=base_url,
-            )
+
+            if agent_type == "multi":
+                from agents.coordinator import MultiAgentCoordinator
+
+                agent = MultiAgentCoordinator(
+                    workdir=settings.workdir,
+                    sandbox_mode=settings.sandbox_mode,
+                    use_mock=settings.llm_mock,
+                    model=model,
+                    api_key=api_key,
+                    provider=provider,
+                    base_url=base_url,
+                )
+            else:
+                from agents.baseline.agent import BaselineAgent
+
+                agent = BaselineAgent(
+                    workdir=settings.workdir,
+                    sandbox_mode=settings.sandbox_mode,
+                    use_mock=settings.llm_mock,
+                    model=model,
+                    api_key=api_key,
+                    provider=provider,
+                    base_url=base_url,
+                )
             result = await agent.run(repository, issue)
             result.trace = result.trace or {}
             result.trace["task_id"] = task_id
