@@ -78,6 +78,18 @@ def aggregate(results: List[TaskResponse], wall_seconds: Optional[float] = None)
     llm_calls = sum(r.llm_calls for r in results)
     total_cost = sum(r.estimated_cost for r in results)
 
+    # Phase 6: Queue latency and cache hit rate
+    q_latencies = [
+        r.trace["queue_latency_s"]
+        for r in results
+        if r.trace and isinstance(r.trace, dict) and "queue_latency_s" in r.trace and r.trace["queue_latency_s"] is not None
+    ]
+    avg_queue_lat = round(sum(q_latencies) / len(q_latencies), 4) if q_latencies else None
+
+    from inference.cache.cache import get_llm_cache
+    cache_stats = get_llm_cache().stats()
+    cache_hit_rate = cache_stats["hit_rate"] if cache_stats["total_requests"] > 0 else None
+
     return BenchmarkMetrics(
         total=total,
         successes=successes,
@@ -99,4 +111,6 @@ def aggregate(results: List[TaskResponse], wall_seconds: Optional[float] = None)
         avg_tool_calls_per_task=sum(r.tool_calls for r in results) / total,
         total_errors=sum(1 for r in results if r.error),
         tasks_per_minute=round(total / (wall_seconds / 60), 2) if wall_seconds else None,
+        queue_latency=avg_queue_lat,
+        cache_hit_rate=cache_hit_rate,
     )

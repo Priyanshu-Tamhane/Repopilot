@@ -180,8 +180,20 @@ def handle_benchmark(args: argparse.Namespace) -> None:
         cli_args.extend(["--retrieval", "--experiment", "exp2_retrieval"])
     elif exp == 3:
         cli_args.extend(["--multi-agent", "--experiment", "exp3_multi_agent"])
-    else:  # exp 4 (Phase 5)
+    elif exp == 4:
         cli_args.extend(["--multi-agent", "--model-routing", "--experiment", "exp4_routing"])
+    elif exp == 5:
+        cli_args.extend(["--multi-agent", "--model-routing", "--cache", "--experiment", "exp5_caching"])
+    elif exp == 6:
+        workers = args.workers if args.workers > 1 else 4
+        cli_args.extend(["--multi-agent", "--model-routing", "--workers", str(workers), "--experiment", f"exp6_scaling_w{workers}"])
+    else:
+        cli_args.extend(["--multi-agent", "--model-routing", "--experiment", "exp4_routing"])
+
+    if args.cache and "--cache" not in cli_args:
+        cli_args.append("--cache")
+    if args.workers > 1 and "--workers" not in cli_args:
+        cli_args.extend(["--workers", str(args.workers)])
 
     from evaluation.runner.cli import main as runner_main
     sys.argv = cli_args
@@ -195,14 +207,13 @@ def handle_compare(args: argparse.Namespace) -> None:
     if args.file1 and args.file2:
         f1, f2 = args.file1, args.file2
     else:
-        # Auto-pick latest Exp3 and Exp4 results
-        exp3_files = sorted(results_dir.glob("exp3_multi_agent_*.json"))
-        exp4_files = sorted(results_dir.glob("exp4_routing_*.json"))
-        if not exp3_files or not exp4_files:
-            print("No matching benchmark results found to auto-compare. Provide file1 and file2.")
+        # Auto-pick latest Exp3/4/5/6 results
+        all_results = sorted(results_dir.glob("exp*.json"))
+        if len(all_results) < 2:
+            print("Need at least two benchmark result JSON files to compare.")
             return
-        f1 = str(exp3_files[-1])
-        f2 = str(exp4_files[-1])
+        f1 = str(all_results[-2])
+        f2 = str(all_results[-1])
 
     from evaluation.experiments.compare import main as compare_main
     sys.argv = ["compare.py", f1, f2]
@@ -237,25 +248,29 @@ def main() -> None:
     p_run = subparsers.add_parser("run", help="Run RepoPilot on a repository and issue")
     p_run.add_argument("--repo", required=True, help="Repository path or GitHub URL")
     p_run.add_argument("--issue", required=True, help="Issue description")
-    p_run.add_argument("--phase", type=int, choices=[1, 3, 4, 5], default=5, help="Agent architecture phase (default: 5)")
+    p_run.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6], default=5, help="Agent architecture phase (default: 5)")
     p_run.add_argument("--mock", action="store_true", help="Use offline mock LLM ($0.00 cost)")
     p_run.add_argument("--real", action="store_true", help="Use real Groq LLM from .env")
+    p_run.add_argument("--cache", action="store_true", help="Enable prompt & response caching (Phase 6)")
     p_run.add_argument("--sandbox", choices=["auto", "local", "docker"], default="auto", help="Sandbox execution mode")
     p_run.add_argument("--retries", type=int, default=3, help="Max repair retries")
 
     # 2. demo
     p_demo = subparsers.add_parser("demo", help="Run an instant demo on a built-in test case")
     p_demo.add_argument("--task", choices=["easy", "hard"], default="easy", help="Bug type: easy (routes to cheap) or hard (routes to heavy)")
-    p_demo.add_argument("--phase", type=int, choices=[1, 3, 4, 5], default=5, help="Agent architecture phase (default: 5)")
+    p_demo.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6], default=5, help="Agent architecture phase (default: 5)")
     p_demo.add_argument("--mock", action="store_true", help="Use offline mock LLM ($0.00 cost)")
     p_demo.add_argument("--real", action="store_true", help="Use real Groq LLM from .env")
+    p_demo.add_argument("--cache", action="store_true", help="Enable prompt & response caching (Phase 6)")
 
     # 3. benchmark
     p_bm = subparsers.add_parser("benchmark", help="Run evaluation benchmark suite")
-    p_bm.add_argument("--exp", type=int, choices=[1, 2, 3, 4], default=4, help="Experiment: 1=Baseline, 2=RAG, 3=Multi-Agent, 4=Routing (default: 4)")
+    p_bm.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5, 6], default=4, help="Experiment: 1=Baseline, 2=RAG, 3=Multi-Agent, 4=Routing, 5=Caching, 6=Worker Scaling (default: 4)")
     p_bm.add_argument("--limit", type=int, default=None, help="Limit number of tasks (e.g. --limit 3)")
     p_bm.add_argument("--mock", action="store_true", help="Run benchmark with mock LLM")
     p_bm.add_argument("--real", action="store_true", help="Run benchmark with real Groq LLM")
+    p_bm.add_argument("--cache", action="store_true", help="Enable Phase 6 prompt caching (Exp 5)")
+    p_bm.add_argument("--workers", type=int, default=1, help="Parallel worker concurrency: 1, 2, 4, 8 (Exp 6)")
     p_bm.add_argument("--sandbox", choices=["auto", "local", "docker"], default="local", help="Sandbox mode")
 
     # 4. compare

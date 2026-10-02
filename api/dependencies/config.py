@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     groq_cheap_model: str = "openai/gpt-oss-20b"
     groq_base_url: str = "https://api.groq.com/openai/v1"
     model_routing: bool = False
+    llm_cache: bool = False
+    max_workers: int = 1
     # OpenAI (kept for backward compat)
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"

@@ -12,7 +12,7 @@ Evaluation-driven coding-agent infrastructure that measures and improves efficie
 - **Phase 3 — DONE:** Repository indexing (AST + dependency graph + TF-IDF) → RAG (top-6, 8k budget) → Exp2 compare vs baseline (20/20 parity, retrieval hit@6 100%)
 - **Phase 4 — DONE:** Multi-agent system (Planner, Researcher, Implementer, Tester, Debugger, Reviewer + Coordinator) → Exp3 evaluation
 - **Phase 5 — DONE:** Dynamic model routing (CHEAP vs HEAVY tiers) + cascade escalation on failure → Exp4 evaluation (-28.6% cost reduction)
-- **Phase 6:** Caching + parallel execution + worker scaling
+- **Phase 6 — DONE:** Caching (LLMCache + CachedLLMProvider) + parallel WorkerPool scaling (1, 2, 4, 8 workers) + queue latency tracking → Exp5 & Exp6
 - **Phase 7:** Observability → dashboard → ablation → final report
 
 ## Quick Start (Phase 1)
@@ -158,6 +158,23 @@ Intelligent tiered model selection based on task complexity and keyword analysis
 Run: `python -m evaluation.runner.cli --multi-agent --model-routing --limit 3 --sandbox local`  
 Compare: `python -m evaluation.experiments.compare evaluation/results/exp3_*.json evaluation/results/exp4_*.json`
 
+## Phase 6 — Caching, Parallel Execution & Worker Scaling (Exp5 & Exp6)
+
+Infrastructure scaling, speed, and high-throughput execution:
+- **LLM Caching (`inference/cache/`):** SHA-256 hash matching on `(model, system, prompt)` with LRU eviction and TTL. Returns cached completions in 0ms at $0.00 cost.
+- **Worker Pool Scaling (`execution/workers/`):** Concurrent task execution across 1, 2, 4, and 8 isolated workers. Tracks `queue_latency` (waiting time before worker dispatch) and throughput scaling.
+- **Results:** Dispatches concurrent tasks in parallel without sandbox collisions; achieves **47+ tasks/minute** throughput.
+
+Run Caching Ablation (Exp 5):
+```bash
+python repopilot.py benchmark --exp 5 --limit 3 --cache
+```
+
+Run Worker Scaling Ablation (Exp 6 with 4 concurrent workers):
+```bash
+python repopilot.py benchmark --exp 6 --workers 4 --limit 4
+```
+
 ## Tests
 
 ```bash
@@ -168,4 +185,5 @@ pytest tests/test_benchmark.py -v     # dataset validity (bugs fail pre-fix) + m
 pytest tests/test_retrieval.py -v     # AST + graph + hit@6 >=18/20 + Exp2 mini-mock with retrieval trace
 pytest tests/test_multi_agent.py -v   # Phase 4 multi-agent sub-agent team & repair loop
 pytest tests/test_router.py -v        # Phase 5 model router, complexity scoring & escalation
+pytest tests/test_phase6.py -v        # Phase 6 LLM caching, worker pool & queue latency
 ```

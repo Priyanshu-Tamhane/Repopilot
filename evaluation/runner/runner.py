@@ -136,45 +136,96 @@ class BenchmarkRunner:
         agent_factory: Callable[[], Any] = build_baseline_agent,
         sandbox_mode: Optional[str] = None,  # None = use agent default
         timeout_s: float = 300.0,
+        concurrency: int = 1,
+        use_cache: bool = False,
     ):
         self.agent_factory = agent_factory
         self.sandbox_mode = sandbox_mode
         self.timeout_s = timeout_s
+        self.concurrency = concurrency
+        self.use_cache = use_cache
+        from execution.workers.pool import WorkerPool
+
+        self.pool = WorkerPool(concurrency=concurrency, timeout_s=timeout_s)
 
     async def run_task(self, task: BenchmarkTask, repo_parent: Path) -> TaskResponse:
-        repo = materialize(task, repo_parent)
-        agent = self.agent_factory()
-        if self.sandbox_mode:
-            agent.sandbox_mode = self.sandbox_mode
-        try:
-            result = await asyncio.wait_for(agent.run(str(repo), task.issue), timeout=self.timeout_s)
-        except asyncio.TimeoutError:
-            result = TaskResponse(
-                success=False, duration_seconds=self.timeout_s,
-                error=f"task {task.id} timed out after {self.timeout_s}s",
-            )
+        async def _execute() -> TaskResponse:
+            task_dir = repo_parent / f"task_{task.id}_{time.time_ns()}"
+            task_dir.mkdir(parents=True, exist_ok=True)
+            repo = materialize(task, task_dir)
+            agent = self.agent_factory()
+            if self.sandbox_mode:
+                agent.sandbox_mode = self.sandbox_mode
+            if self.use_cache:
+                from inference.cache.cache import CachedLLMProvider
+
+                if hasattr(agent, "provider") and not isinstance(agent.provider, CachedLLMProvider):
+                    agent.provider = CachedLLMProvider(agent.provider)
+                if hasattr(agent, "implementer") and not isinstance(agent.implementer.provider, CachedLLMProvider):
+                    agent.implementer.provider = CachedLLMProvider(agent.implementer.provider)
+                if hasattr(agent, "debugger") and not isinstance(agent.debugger.provider, CachedLLMProvider):
+                    agent.debugger.provider = CachedLLMProvider(agent.debugger.provider)
+
+            try:
+                result = await asyncio.wait_for(agent.run(str(repo), task.issue), timeout=self.timeout_s)
+            except asyncio.TimeoutError:
+                result = TaskResponse(
+                    success=False,
+                    duration_seconds=self.timeout_s,
+                    error=f"task {task.id} timed out after {self.timeout_s}s",
+                )
+            if result.trace is None:
+                result.trace = {}
+            result.trace["benchmark_task_id"] = task.id
+            result.trace["benchmark_category"] = task.category
+            return result
+
+        result, q_lat = await self.pool.execute(_execute)
         if result.trace is None:
             result.trace = {}
-        result.trace["benchmark_task_id"] = task.id
-        result.trace["benchmark_category"] = task.category
+        result.trace["queue_latency_s"] = q_lat
         return result
 
     async def run_all(
         self, dataset: BenchmarkDataset, limit: Optional[int] = None
     ) -> tuple[list[str], list[TaskResponse], float]:
         tasks = dataset.tasks[:limit] if limit else dataset.tasks
-        task_ids: list[str] = []
-        results: list[TaskResponse] = []
         wall_start = time.time()
         with tempfile.TemporaryDirectory(prefix="repopilot-bench-") as td:
-            for task in tasks:
-                print(f"[{task.id}/{dataset.tasks[-1].id}] {task.category} ...", flush=True)
-                result = await self.run_task(task, Path(td))
-                mark = "PASS" if result.success else "FAIL"
-                print(f"  {mark} passed={result.tests_passed} failed={result.tests_failed} "
-                      f"{result.duration_seconds:.1f}s", flush=True)
-                task_ids.append(task.id)
-                results.append(result)
+            if self.concurrency > 1:
+                print(
+                    f"[Runner] Running {len(tasks)} tasks concurrently across {self.concurrency} workers...",
+                    flush=True,
+                )
+
+                async def _worker_job(task: BenchmarkTask) -> tuple[str, TaskResponse]:
+                    print(f"[{task.id}/{dataset.tasks[-1].id}] {task.category} (dispatched)...", flush=True)
+                    res = await self.run_task(task, Path(td))
+                    mark = "PASS" if res.success else "FAIL"
+                    print(
+                        f"  [{task.id}] {mark} passed={res.tests_passed} failed={res.tests_failed} "
+                        f"{res.duration_seconds:.1f}s (queue={res.trace.get('queue_latency_s', 0):.2f}s)",
+                        flush=True,
+                    )
+                    return task.id, res
+
+                task_results = await asyncio.gather(*[_worker_job(t) for t in tasks])
+                task_ids = [tr[0] for tr in task_results]
+                results = [tr[1] for tr in task_results]
+            else:
+                task_ids: list[str] = []
+                results: list[TaskResponse] = []
+                for task in tasks:
+                    print(f"[{task.id}/{dataset.tasks[-1].id}] {task.category} ...", flush=True)
+                    result = await self.run_task(task, Path(td))
+                    mark = "PASS" if result.success else "FAIL"
+                    print(
+                        f"  {mark} passed={result.tests_passed} failed={result.tests_failed} "
+                        f"{result.duration_seconds:.1f}s",
+                        flush=True,
+                    )
+                    task_ids.append(task.id)
+                    results.append(result)
         return task_ids, results, time.time() - wall_start
 
 
