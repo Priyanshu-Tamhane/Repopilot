@@ -220,9 +220,23 @@ def handle_compare(args: argparse.Namespace) -> None:
     compare_main()
 
 
+def handle_ablation(args: argparse.Namespace) -> None:
+    from evaluation.experiments.ablation import generate_ablation_report_markdown
+    report = generate_ablation_report_markdown()
+    print("=" * 65)
+    print(" REPOPILOT ABLATION STUDY MATRIX REPORT")
+    print("=" * 65)
+    print(report)
+
+
 def handle_serve(args: argparse.Namespace) -> None:
     import uvicorn
-    print(f"Starting RepoPilot API server on {args.host}:{args.port}...")
+    print("=" * 65)
+    print(f" Starting RepoPilot Server & React Dashboard | Phase 7")
+    print(f" API Server     : http://{args.host}:{args.port}")
+    print(f" React Dashboard: http://localhost:{args.port}/dashboard")
+    print(f" Metrics        : http://localhost:{args.port}/metrics")
+    print("=" * 65)
     uvicorn.run("api.main:app", host=args.host, port=args.port, reload=args.reload)
 
 
@@ -248,7 +262,7 @@ def main() -> None:
     p_run = subparsers.add_parser("run", help="Run RepoPilot on a repository and issue")
     p_run.add_argument("--repo", required=True, help="Repository path or GitHub URL")
     p_run.add_argument("--issue", required=True, help="Issue description")
-    p_run.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6], default=5, help="Agent architecture phase (default: 5)")
+    p_run.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6, 7], default=7, help="Agent architecture phase (default: 7)")
     p_run.add_argument("--mock", action="store_true", help="Use offline mock LLM ($0.00 cost)")
     p_run.add_argument("--real", action="store_true", help="Use real Groq LLM from .env")
     p_run.add_argument("--cache", action="store_true", help="Enable prompt & response caching (Phase 6)")
@@ -258,7 +272,7 @@ def main() -> None:
     # 2. demo
     p_demo = subparsers.add_parser("demo", help="Run an instant demo on a built-in test case")
     p_demo.add_argument("--task", choices=["easy", "hard"], default="easy", help="Bug type: easy (routes to cheap) or hard (routes to heavy)")
-    p_demo.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6], default=5, help="Agent architecture phase (default: 5)")
+    p_demo.add_argument("--phase", type=int, choices=[1, 3, 4, 5, 6, 7], default=7, help="Agent architecture phase (default: 7)")
     p_demo.add_argument("--mock", action="store_true", help="Use offline mock LLM ($0.00 cost)")
     p_demo.add_argument("--real", action="store_true", help="Use real Groq LLM from .env")
     p_demo.add_argument("--cache", action="store_true", help="Enable prompt & response caching (Phase 6)")
@@ -278,13 +292,16 @@ def main() -> None:
     p_comp.add_argument("file1", nargs="?", help="Baseline benchmark JSON file")
     p_comp.add_argument("file2", nargs="?", help="Candidate benchmark JSON file")
 
-    # 5. serve
-    p_serve = subparsers.add_parser("serve", help="Start the FastAPI server")
+    # 5. ablation
+    p_abl = subparsers.add_parser("ablation", help="Generate 6-experiment ablation matrix report")
+
+    # 6. serve
+    p_serve = subparsers.add_parser("serve", help="Start the FastAPI server & React Dashboard")
     p_serve.add_argument("--host", default="0.0.0.0", help="Bind host (default: 0.0.0.0)")
     p_serve.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
     p_serve.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
-    # 6. test
+    # 7. test
     p_test = subparsers.add_parser("test", help="Run project test suite with pytest")
     p_test.add_argument("--verbose", "-v", action="store_true", default=True, help="Verbose pytest output")
     p_test.add_argument("--target", help="Specific test file or test expression")
@@ -303,6 +320,8 @@ def main() -> None:
         handle_benchmark(args)
     elif args.command == "compare":
         handle_compare(args)
+    elif args.command == "ablation":
+        handle_ablation(args)
     elif args.command == "serve":
         handle_serve(args)
     elif args.command == "test":

@@ -1,16 +1,19 @@
-from __future__ import annotations
-
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.dependencies.config import get_settings
 from api.routes.tasks import router as tasks_router
+from api.routes.dashboard import router as dashboard_router
 from api.schemas.tasks import HealthResponse
+from observability.telemetry import get_telemetry_collector
 
 app = FastAPI(
     title="RepoPilot",
-    description="Evaluation-driven coding-agent infrastructure - Phase 1 baseline (Spec §21)",
-    version="0.1.0",
+    description="Evaluation-driven coding-agent infrastructure - Phase 7 (React Dashboard & Observability)",
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -22,6 +25,12 @@ app.add_middleware(
 )
 
 app.include_router(tasks_router)
+app.include_router(dashboard_router)
+
+# Mount React static assets if built dist exists
+DIST_ASSETS = Path(__file__).resolve().parent.parent / "dashboard" / "dist" / "assets"
+if DIST_ASSETS.exists():
+    app.mount("/assets", StaticFiles(directory=str(DIST_ASSETS)), name="static_assets")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["health"])
@@ -35,20 +44,11 @@ async def health():
     )
 
 
-@app.get("/metrics", tags=["observability"])
+@app.get("/metrics", response_class=PlainTextResponse, tags=["observability"])
 async def metrics():
-    """Stub for Phase 7 Prometheus; returns basic counts."""
-    from execution.queue.manager import get_task_manager
-
-    manager = get_task_manager()
-    total = len(manager.tasks)
-    done = sum(1 for t in manager.tasks.values() if t.status == "done")
-    failed = sum(1 for t in manager.tasks.values() if t.status == "failed")
-    return {
-        "tasks_total": total,
-        "tasks_done": done,
-        "tasks_failed": failed,
-    }
+    """Return Prometheus text exposition format metrics."""
+    telemetry = get_telemetry_collector()
+    return PlainTextResponse(content=telemetry.to_prometheus_text(), media_type="text/plain")
 
 
 @app.get("/", tags=["root"])
@@ -56,7 +56,8 @@ async def root():
     return {
         "name": "RepoPilot",
         "version": app.version,
-        "phase": "1 - baseline",
-        "endpoints": ["POST /tasks", "GET /health", "GET /metrics"],
+        "phase": "7 - Observability & React Dashboard",
+        "endpoints": ["POST /tasks", "GET /health", "GET /metrics", "GET /dashboard"],
         "docs": "/docs",
     }
+
