@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
 
 _TOKEN_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+")

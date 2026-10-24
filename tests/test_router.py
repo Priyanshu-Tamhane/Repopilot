@@ -1,4 +1,3 @@
-import asyncio
 import tempfile
 from pathlib import Path
 
@@ -6,7 +5,7 @@ import pytest
 
 from agents.coordinator import MultiAgentCoordinator
 from agents.baseline.agent import BaselineAgent
-from inference.router.router import ModelRouter, ModelTier, RoutingDecision
+from inference.router.router import ModelRouter, ModelTier
 
 
 def _create_test_repo(tmp_path: Path) -> Path:

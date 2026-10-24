@@ -1,4 +1,3 @@
-import asyncio
 import tempfile
 from pathlib import Path
 
@@ -61,7 +60,7 @@ async def test_multi_agent_components():
 
         # 2. Researcher
         researcher = ResearcherAgent(mock_provider)
-        research_summary = await researcher.run(state)
+        await researcher.run(state)
         assert "calculator.py" in state.candidate_files
         assert len(state.research_context) > 0
 

@@ -201,7 +201,6 @@ def handle_benchmark(args: argparse.Namespace) -> None:
 
 
 def handle_compare(args: argparse.Namespace) -> None:
-    import glob
     results_dir = Path("evaluation/results")
 
     if args.file1 and args.file2:
@@ -232,7 +231,7 @@ def handle_ablation(args: argparse.Namespace) -> None:
 def handle_serve(args: argparse.Namespace) -> None:
     import uvicorn
     print("=" * 65)
-    print(f" Starting RepoPilot Server & React Dashboard | Phase 7")
+    print(" Starting RepoPilot Server & React Dashboard | Phase 7")
     print(f" API Server     : http://{args.host}:{args.port}")
     print(f" React Dashboard: http://localhost:{args.port}/dashboard")
     print(f" Metrics        : http://localhost:{args.port}/metrics")
@@ -293,7 +292,7 @@ def main() -> None:
     p_comp.add_argument("file2", nargs="?", help="Candidate benchmark JSON file")
 
     # 5. ablation
-    p_abl = subparsers.add_parser("ablation", help="Generate 6-experiment ablation matrix report")
+    subparsers.add_parser("ablation", help="Generate 6-experiment ablation matrix report")
 
     # 6. serve
     p_serve = subparsers.add_parser("serve", help="Start the FastAPI server & React Dashboard")

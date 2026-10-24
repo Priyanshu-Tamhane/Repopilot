@@ -8,11 +8,10 @@ Validates:
 """
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
-from observability.telemetry import TelemetryCollector, get_telemetry_collector
+from observability.telemetry import TelemetryCollector
 from observability.tracer import SpanTracer
 from evaluation.experiments.ablation import generate_ablation_matrix, generate_ablation_report_markdown
 

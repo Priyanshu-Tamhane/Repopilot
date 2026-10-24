@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
-import tempfile
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,7 +33,6 @@ def prepare_sandbox(repo_url_or_path: str, workdir: str | None = None, mode: str
      - docker: force docker (raises if unavailable)
      - local: force local temp (fast, no isolation)
     """
-    from retrieval.indexer.loader import clone_repository
 
     if mode == "docker" and not _docker_available():
         raise RuntimeError("Docker requested but not available")

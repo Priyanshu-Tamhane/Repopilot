@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from pathlib import Path
 from typing import Optional
 
 from agents.debugger import DebuggerAgent
@@ -120,7 +119,7 @@ class MultiAgentCoordinator:
             await self.planner.run(state)
 
             # 3. Stage 2: Codebase Research
-            print(f"[Multi-Agent] 2/4 Researching repository files via AST & TF-IDF...")
+            print("[Multi-Agent] 2/4 Researching repository files via AST & TF-IDF...")
             await self.researcher.run(state)
 
             # Dynamic Model Routing (Phase 5)
@@ -166,7 +165,7 @@ class MultiAgentCoordinator:
                         and routing_decision.tier == ModelTier.CHEAP
                         and not routing_decision.escalated
                     ):
-                        print(f"[Multi-Agent]   -> Escalating to HEAVY tier after test failure...")
+                        print("[Multi-Agent]   -> Escalating to HEAVY tier after test failure...")
                         routing_decision = self.router.escalate(
                             routing_decision,
                             failure_reason=test_result.get("output", "")[:100],
@@ -176,12 +175,12 @@ class MultiAgentCoordinator:
                         self.debugger.provider = escalated_provider
                         state.trace.add_step("escalate", 0, detail=routing_decision.reason)
 
-                    print(f"[Multi-Agent]   -> Tests failed. Invoking Debugger to diagnose...")
+                    print("[Multi-Agent]   -> Tests failed. Invoking Debugger to diagnose...")
                     hint = await self.debugger.run(state)
                     print(f"[Multi-Agent]   -> Debugger advice: {hint[:100]}...")
 
             # 5. Stage 4: Code Review & Patch Verification
-            print(f"[Multi-Agent] 4/4 Reviewing git diff patch and verifying safety invariants...")
+            print("[Multi-Agent] 4/4 Reviewing git diff patch and verifying safety invariants...")
             review_result = await self.reviewer.run(state)
             approved = review_result.get("approved", False)
             print(f"[Multi-Agent] Patch Approved: {approved} ({review_result.get('notes', '')})")

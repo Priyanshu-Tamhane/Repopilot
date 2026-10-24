@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from retrieval.embeddings.tfidf import cosine_sparse, embed_query
 from retrieval.graph.dependencies import find_relevant_tests
@@ -100,7 +99,6 @@ def retrieve(
 
     context = "\n\n".join(context_parts)
     # stats
-    scores = [s for s, _ in scored if s > 0][:top_k]
     stats = {
         "ranked": len(index.chunks),
         "top_k": len(top_idx),

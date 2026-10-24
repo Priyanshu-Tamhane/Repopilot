@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
-from api.dependencies.config import get_settings
 from api.schemas.tasks import TaskRequest, TaskResponse
 from execution.queue.manager import get_task_manager
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable, Coroutine
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, List, Optional, TypeVar
 
 T = TypeVar("T")
@@ -63,7 +63,6 @@ class WorkerPool:
             async with self._lock:
                 self._active_workers += 1
                 self._worker_counter += 1
-                worker_id = self._worker_counter
                 if self._active_workers > self._peak_workers:
                     self._peak_workers = self._active_workers
 

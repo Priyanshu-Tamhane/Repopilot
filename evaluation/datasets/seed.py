@@ -6,7 +6,6 @@ mock heuristic (offline) and by a real LLM via JSON file_edits.
 """
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 

@@ -41,16 +41,22 @@ def main() -> None:
     elif args.model_routing:
         if args.experiment == EXPERIMENT["name"]:
             args.experiment = "exp4_routing"
-        factory = lambda: build_routed_agent(multi_agent=args.multi_agent, max_retries=args.retries, top_k=args.top_k)
+
+        def factory():
+            return build_routed_agent(multi_agent=args.multi_agent, max_retries=args.retries, top_k=args.top_k)
     elif args.multi_agent:
         if args.experiment == EXPERIMENT["name"]:
             args.experiment = "exp3_multi_agent"
-        factory = lambda: build_multi_agent(max_retries=args.retries)
+
+        def factory():
+            return build_multi_agent(max_retries=args.retries)
     elif args.retrieval:
         # Use retrieval factory; override experiment name if default
         if args.experiment == EXPERIMENT["name"]:
             args.experiment = "exp2_retrieval"
-        factory = lambda: build_retrieval_agent(top_k=args.top_k)
+
+        def factory():
+            return build_retrieval_agent(top_k=args.top_k)
     else:
         factory = None
     runner = BenchmarkRunner(

@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import re
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from inference.models.base import LLMProvider, LLMResponse
+from inference.models.base import LLMResponse
 from inference.telemetry.metrics import LLMCallRecord, TaskTrace
 
 

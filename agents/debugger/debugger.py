@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import time
-from typing import Any
 
 from agents.protocol import SharedTaskState, extract_json
 from inference.models.base import LLMProvider

@@ -1,9 +1,8 @@
 """RepoPilot Evaluation - Full 6-Experiment Ablation Matrix Generator."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 

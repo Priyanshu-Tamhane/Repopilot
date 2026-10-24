@@ -10,7 +10,6 @@ import argparse
 import json
 import glob
 from pathlib import Path
-from typing import Optional
 
 
 def load_latest(pattern: str) -> Path:

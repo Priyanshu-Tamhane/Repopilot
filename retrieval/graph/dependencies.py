@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, Set
 
-from retrieval.ast.parser import FileEntities, parse_repo
+from retrieval.ast.parser import FileEntities
 
 
 def _normalize_import(imp: str) -> str:
