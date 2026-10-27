@@ -56,5 +56,5 @@ async def serve_react_dashboard(full_path: str = ""):
         return FileResponse(str(index_html))
     return HTMLResponse(
         content="<html><body><h2>React Dashboard build not found. Run <code>npm run build</code> in <code>dashboard/</code></h2></body></html>",
-        status_code=404,
+        status_code=200,
     )

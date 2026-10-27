@@ -33,12 +33,13 @@ def test_dataset_json_roundtrip():
 
 def test_seed_bugs_fail_prefix():
     """Every seed repo must FAIL pytest before the fix (bugs are real)."""
+    import sys
     ds = build_dataset()
     with tempfile.TemporaryDirectory(prefix="bench-valid-") as td:
         for task in ds.tasks:
             repo = materialize(task, Path(td))
             r = subprocess.run(
-                ["python", "-m", "pytest", "-q"],
+                [sys.executable, "-m", "pytest", "-q", "-o", "addopts="],
                 cwd=str(repo), capture_output=True, text=True, timeout=120,
             )
             assert r.returncode != 0, f"{task.id} unexpectedly passes pre-fix"

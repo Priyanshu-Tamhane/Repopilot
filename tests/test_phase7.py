@@ -124,3 +124,4 @@ def test_dashboard_routes_e2e():
     # 4. /dashboard (React SPA HTML)
     resp_dashboard = client.get("/dashboard")
     assert resp_dashboard.status_code == 200
+    assert "<html" in resp_dashboard.text.lower()

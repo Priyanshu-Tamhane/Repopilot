@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dataset.schema import load_tasks_jsonl, save_tasks_jsonl, BenchmarkTask
+from dataset.schema import load_tasks_jsonl, save_tasks_jsonl
 
 
 def test_dataset_jsonl_load_and_shape():

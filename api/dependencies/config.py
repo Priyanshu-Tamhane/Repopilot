@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
     anthropic_api_key: str = ""
     sandbox_mode: str = "auto"  # auto | docker | local
-    workdir: str = r"C:\Users\PRIYAN~1\AppData\Local\Temp\repopilot"
+    workdir: str = str(Path(tempfile.gettempdir()) / "repopilot")
     docker_image: str = "python:3.11-slim"
     docker_memory_limit: str = "1g"
     api_host: str = "0.0.0.0"

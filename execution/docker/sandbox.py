@@ -8,6 +8,38 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+MAX_OUTPUT_CHARS = 50_000
+
+
+def validate_safe_path(base_dir: Path, target_path: Path | str) -> Path:
+    """Validate that target_path does not escape base_dir via symlinks or ../ traversal."""
+    resolved_base = base_dir.resolve()
+    resolved_target = (base_dir / target_path).resolve() if not Path(target_path).is_absolute() else Path(target_path).resolve()
+    try:
+        resolved_target.relative_to(resolved_base)
+    except ValueError:
+        raise PermissionError(f"SecurityError: Path escape attempt detected outside sandbox: {target_path}")
+    return resolved_target
+
+
+def check_test_tampering(patch_text: str) -> tuple[bool, list[str]]:
+    """Scan candidate patch and detect any modifications to test files.
+    
+    Returns (is_tampered, list_of_tampered_test_files).
+    """
+    import re
+    tampered = []
+    lines = patch_text.splitlines()
+    for line in lines:
+        m = re.match(r"^(?:diff --git a/[^\s]+ b/|--- [ab]/|\+\+\+ [ab]/)([^\s]+)", line)
+        if m:
+            file_path = m.group(1).lstrip("/").lower()
+            if any(t in file_path for t in ["test_", "_test.py", "tests/", "/test/"]):
+                if file_path not in tampered:
+                    tampered.append(file_path)
+    return (len(tampered) > 0), tampered
+
+
 @dataclass
 class SandboxResult:
     repo_path: Path
@@ -89,48 +121,54 @@ def run_tests_in_sandbox(repo_path: Path, mode: str = "auto") -> tuple[int, int,
         return _run_tests_local(repo_path)
 
 
-def _run_tests_local(repo_path: Path) -> tuple[int, int, str]:
+def _run_tests_local(repo_path: Path, timeout_s: int = 60) -> tuple[int, int, str]:
+    import sys
     try:
         result = subprocess.run(
-            ["python", "-m", "pytest", "-q"],
+            [sys.executable, "-m", "pytest", "-q", "-o", "addopts="],
             cwd=str(repo_path),
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout_s,
         )
         output = (result.stdout or "") + "\n" + (result.stderr or "")
+        if len(output) > MAX_OUTPUT_CHARS:
+            output = output[:MAX_OUTPUT_CHARS] + "\n... [OUTPUT TRUNCATED BY SANDBOX MONITOR]"
         return _parse_pytest_output(output)
     except subprocess.TimeoutExpired:
-        return 0, 1, "pytest timed out after 120s"
+        return 0, 1, f"pytest timed out after {timeout_s}s (infinite loop terminated)"
     except FileNotFoundError:
         return 0, 1, "pytest not found"
 
 
-def _run_tests_docker(repo_path: Path) -> tuple[int, int, str]:
+def _run_tests_docker(repo_path: Path, timeout_s: int = 60, network: str = "none") -> tuple[int, int, str]:
     try:
         import docker  # type: ignore
 
         import os
 
         client = docker.from_env()
-        # Run python:3.11-slim with mount
-        # Resolve realpath to expand any Windows 8.3 short paths (e.g. PRIYAN~1)
         host_path = os.path.realpath(str(repo_path))
         output = client.containers.run(
             "python:3.11-slim",
-            command="bash -c 'pip install -q pytest && (pytest -q || true)'",
+            command="bash -c 'pytest -q -o addopts= || true'",
             volumes={host_path: {"bind": "/repo", "mode": "rw"}},
             working_dir="/repo",
             remove=True,
-            mem_limit="1g",
+            network_mode=network,
+            mem_limit="2g",
+            nano_cpus=2_000_000_000,
+            pids_limit=100,
             stdout=True,
             stderr=True,
         )
         text = output.decode("utf-8", errors="ignore") if isinstance(output, bytes) else str(output)
+        if len(text) > MAX_OUTPUT_CHARS:
+            text = text[:MAX_OUTPUT_CHARS] + "\n... [OUTPUT TRUNCATED BY SANDBOX MONITOR]"
         return _parse_pytest_output(text)
-    except Exception as e:
+    except Exception:
         # Fallback to local
-        return 0, 1, f"docker test run failed: {e}\nFalling back to local parser"
+        return _run_tests_local(repo_path, timeout_s=timeout_s)
 
 
 def _parse_pytest_output(output: str) -> tuple[int, int, str]:
