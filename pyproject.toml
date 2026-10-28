@@ -29,6 +29,10 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+addopts = "-p no:deepeval"
+
+[project.scripts]
+repopilot-bench = "evaluation.bench.cli:main"
 
 [build-system]
 requires = ["hatchling"]

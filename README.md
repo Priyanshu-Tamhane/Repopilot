@@ -175,6 +175,37 @@ Run Worker Scaling Ablation (Exp 6 with 4 concurrent workers):
 python repopilot.py benchmark --exp 6 --workers 4 --limit 4
 ```
 
+## Standardized Benchmark Harness (`repopilot-bench`)
+
+Phase 4 of the reproducible benchmark roadmap introduces a unified benchmark harness that:
+- **Standardizes agent configs** behind a canonical `BaseBenchmarkAgent` interface (B0–B3)
+- **Records every run** as a structured JSON file — no re-invocation needed for reporting
+- **Separates agent execution from evaluation** using an independent `CleanRoomEvaluator`
+- **CLI-driven**: `repopilot-bench run` + `repopilot-bench report`
+
+### Run a benchmark
+
+```bash
+# Run B0 (naive baseline) against the full dataset, mock LLM
+repopilot-bench run --dataset dataset/tasks.jsonl --agent b0 --mock
+
+# Run B1 (retrieval) with limit for smoke testing
+repopilot-bench run --dataset dataset/tasks.jsonl --agent b1 --limit 3
+
+# Real LLM (requires GROQ_API_KEY)
+repopilot-bench run --dataset dataset/tasks.jsonl --agent b3 --provider groq --model llama-3.3-70b-versatile
+```
+
+### Generate an offline report
+
+```bash
+# Generate Markdown report from saved JSON records (zero LLM calls)
+repopilot-bench report --results evaluation/results --out evaluation/results/report.md
+```
+
+Agent configs: `b0` (naive baseline), `b1` (retrieval/RAG), `b2` (multi-agent), `b3` (model routing).  
+Raw JSON records land in `evaluation/results/`. Each record contains: run_id, task_id, agent_config, model, tokens, cost, patch, evaluation results, and a full trace.
+
 ## Tests
 
 ```bash
@@ -182,6 +213,7 @@ pytest -v
 pytest tests/test_api.py -v
 pytest tests/test_baseline_e2e.py -v  # builds a dummy repo and solves one issue
 pytest tests/test_benchmark.py -v     # dataset validity (bugs fail pre-fix) + metrics math + 3-task mock run
+pytest tests/test_benchmark_harness.py -v  # Phase 4 harness: agent factory, schema, workspace, report, CLI
 pytest tests/test_retrieval.py -v     # AST + graph + hit@6 >=18/20 + Exp2 mini-mock with retrieval trace
 pytest tests/test_multi_agent.py -v   # Phase 4 multi-agent sub-agent team & repair loop
 pytest tests/test_router.py -v        # Phase 5 model router, complexity scoring & escalation

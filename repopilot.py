@@ -228,6 +228,12 @@ def handle_ablation(args: argparse.Namespace) -> None:
     print(report)
 
 
+def handle_bench(args: argparse.Namespace) -> None:
+    from evaluation.bench.cli import main as bench_main
+    sys.argv = ["repopilot-bench"] + (args.bench_args or [])
+    bench_main()
+
+
 def handle_serve(args: argparse.Namespace) -> None:
     import uvicorn
     print("=" * 65)
@@ -305,6 +311,10 @@ def main() -> None:
     p_test.add_argument("--verbose", "-v", action="store_true", default=True, help="Verbose pytest output")
     p_test.add_argument("--target", help="Specific test file or test expression")
 
+    # 8. bench (Phase 4 standardized benchmark harness)
+    p_bench = subparsers.add_parser("bench", help="Run Phase 4 standardized benchmark harness (repopilot-bench)")
+    p_bench.add_argument("bench_args", nargs=argparse.REMAINDER, help="Arguments passed to repopilot-bench")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -321,6 +331,8 @@ def main() -> None:
         handle_compare(args)
     elif args.command == "ablation":
         handle_ablation(args)
+    elif args.command == "bench":
+        handle_bench(args)
     elif args.command == "serve":
         handle_serve(args)
     elif args.command == "test":

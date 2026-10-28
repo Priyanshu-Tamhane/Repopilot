@@ -77,11 +77,12 @@ def get_file_snapshot(repo_path: Path, max_files: int = 100) -> str:
     lines.append(f"Repository: {repo_path}")
     # listing
     all_files = []
-    for p in repo_path.rglob("*"):
-        if p.is_file():
+    ignored = {".git", "__pycache__", ".venv", "venv", "node_modules", ".pytest_cache", ".mypy_cache"}
+    for root, dirs, files in os.walk(repo_path):
+        dirs[:] = [d for d in dirs if d not in ignored and not d.startswith(".")]
+        for f in files:
+            p = Path(root) / f
             rel = p.relative_to(repo_path).as_posix()
-            if any(x in rel for x in [".git/", "__pycache__", ".venv", "node_modules", ".pytest_cache"]):
-                continue
             all_files.append((rel, p))
     all_files.sort(key=lambda x: x[0])
     lines.append(f"Total files: {len(all_files)}")

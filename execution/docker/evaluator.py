@@ -77,6 +77,15 @@ class CleanRoomEvaluator:
             if pfile.exists():
                 pfile.unlink()
 
+    def evaluate(
+        self,
+        task: BenchmarkTask,
+        candidate_patch: str,
+        sandbox_mode: str = "auto",
+    ) -> EvaluationResult:
+        """Alias for evaluate_candidate."""
+        return self.evaluate_candidate(task, candidate_patch, sandbox_mode=sandbox_mode)
+
     def evaluate_candidate(
         self,
         task: BenchmarkTask,
@@ -100,13 +109,18 @@ class CleanRoomEvaluator:
         # Step 2: Clean workspace checkout
         eval_dir = self.workdir / f"eval_{task.task_id}_{int(start_time)}"
         try:
-            # Clone repo
-            r_clone = subprocess.run(
-                ["git", "clone", "--filter=blob:none", task.repository, str(eval_dir)],
-                capture_output=True,
-                text=True,
-                timeout=self.timeout_s,
-            )
+            # Clone or copy repo
+            repo_source = task.repository
+            if Path(repo_source).exists():
+                shutil.copytree(str(Path(repo_source).resolve()), str(eval_dir), dirs_exist_ok=True)
+                r_clone = subprocess.run(["git", "status"], cwd=str(eval_dir), capture_output=True, text=True)
+            else:
+                r_clone = subprocess.run(
+                    ["git", "clone", "--filter=blob:none", repo_source, str(eval_dir)],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout_s,
+                )
             if r_clone.returncode != 0:
                 return EvaluationResult(
                     task_id=task.task_id,
@@ -157,7 +171,8 @@ class CleanRoomEvaluator:
             # Step 5: Execute isolated test run
             cmd_parts = task.test_command.split()
             if cmd_parts and cmd_parts[0] in ("pytest", "python"):
-                cmd = [sys.executable, "-m", "pytest", "-q", "-o", "addopts=", *cmd_parts[1:]]
+                filtered_parts = [p for p in cmd_parts[1:] if not p.startswith("addopts") and p != "-o"]
+                cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:deepeval", "-o", "addopts=", *filtered_parts]
             else:
                 cmd = cmd_parts
 
