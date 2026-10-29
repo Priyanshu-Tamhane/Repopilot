@@ -1,0 +1,16 @@
+# RepoPilot Configuration: B0 (Naive Baseline)
+# Phase 5 — Controlled Benchmark Configurations
+config: b0
+name: b0_baseline
+description: "Naive baseline: Full repository snapshot in context, monolithic LLM prompt, no RAG, no routing."
+model: "openai/gpt-oss-120b"
+provider: "groq"
+use_mock: true
+temperature: 0.0
+
+budget:
+  max_wall_time_s: 300.0
+  max_llm_calls: 1
+  max_tokens: 100000
+  max_tool_calls: 10
+  max_retries: 0

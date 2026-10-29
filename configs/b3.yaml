@@ -1,0 +1,17 @@
+# RepoPilot Configuration: B3 (Dynamic Model Routing)
+# Phase 5 — Controlled Benchmark Configurations
+config: b3
+name: b3_routing
+description: "Model routing: Complexity classification directing to Tier 1 Cheap (20b/8b) or Tier 2 Heavy (120b/70b) with escalation."
+cheap_model: "openai/gpt-oss-20b"
+heavy_model: "openai/gpt-oss-120b"
+provider: "groq"
+use_mock: true
+temperature: 0.0
+
+budget:
+  max_wall_time_s: 300.0
+  max_llm_calls: 5
+  max_tokens: 100000
+  max_tool_calls: 15
+  max_retries: 1

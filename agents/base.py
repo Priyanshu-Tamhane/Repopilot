@@ -89,6 +89,7 @@ class B0BaselineAgent(BaseBenchmarkAgent):
     """B0 — Naive Baseline: Full repository snapshot, single LLM step, no RAG."""
 
     def __init__(self, **kwargs: Any) -> None:
+        kwargs.pop("name", None)
         super().__init__(name="b0_baseline", **kwargs)
 
     async def solve(self, task: BenchmarkTask, workspace: Path, budget: TaskBudget) -> AgentOutput:
@@ -155,6 +156,7 @@ class B1RetrievalAgent(BaseBenchmarkAgent):
     """B1 — Retrieval: AST + TF-IDF file ranking, top-6 files, 8k context window."""
 
     def __init__(self, top_k: int = 6, char_budget: int = 8000, **kwargs: Any) -> None:
+        kwargs.pop("name", None)
         super().__init__(name="b1_retrieval", **kwargs)
         self.top_k = top_k
         self.char_budget = char_budget
@@ -229,6 +231,7 @@ class B2MultiAgent(BaseBenchmarkAgent):
     """B2 — Multi-Agent: Explicit roles (Planner, Researcher, Implementer, Debugger, Reviewer)."""
 
     def __init__(self, max_retries: int = 3, **kwargs: Any) -> None:
+        kwargs.pop("name", None)
         super().__init__(name="b2_multi_agent", **kwargs)
         self.max_retries = max_retries
 
@@ -281,14 +284,14 @@ class B2MultiAgent(BaseBenchmarkAgent):
             await reviewer.run(state)
 
             patch = state.patch or get_git_patch(workspace)
-            input_tokens = sum(c.input_tokens for c in state.llm_calls)
-            output_tokens = sum(c.output_tokens for c in state.llm_calls)
+            input_tokens = state.input_tokens
+            output_tokens = state.output_tokens
 
             return AgentOutput(
                 patch=patch,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                llm_calls=len(state.llm_calls),
+                llm_calls=state.llm_calls,
                 tool_calls=state.tool_calls,
                 retries=state.iteration,
                 duration_seconds=time.time() - start_time,
@@ -315,6 +318,8 @@ class B3RoutingAgent(BaseBenchmarkAgent):
         heavy_model: str = "openai/gpt-oss-120b",
         **kwargs: Any,
     ) -> None:
+        kwargs.pop("name", None)
+        kwargs.pop("model", None)
         super().__init__(name="b3_routing", model=heavy_model, **kwargs)
         self.cheap_model = cheap_model
         self.heavy_model = heavy_model
@@ -349,7 +354,7 @@ class B3RoutingAgent(BaseBenchmarkAgent):
                 context=rr.context,
                 candidate_files=rr.stats.get("candidate_files", []),
             )
-            selected_model = route_decision.selected_model
+            selected_model = route_decision.model_name
             tier_name = route_decision.tier.value
 
             # 3. LLM call with routed model
@@ -383,7 +388,7 @@ class B3RoutingAgent(BaseBenchmarkAgent):
                         "tier": tier_name,
                         "selected_model": selected_model,
                         "complexity_score": route_decision.complexity_score,
-                        "reasons": route_decision.reasons,
+                        "reason": route_decision.reason,
                     },
                 },
             )
@@ -397,15 +402,46 @@ class B3RoutingAgent(BaseBenchmarkAgent):
             )
 
 
-def get_agent(config: str, **kwargs: Any) -> BaseBenchmarkAgent:
-    """Factory to instantiate benchmark agent by configuration key."""
-    cfg = config.lower().strip()
+def load_agent_config(config_path_or_key: str | Path) -> tuple[str, dict[str, Any]]:
+    """Load configuration dictionary from YAML/JSON file or resolve shorthand name."""
+    p = Path(config_path_or_key)
+    data: dict[str, Any] = {}
+
+    if p.exists() and p.is_file():
+        text = p.read_text(encoding="utf-8")
+        if p.suffix in (".yaml", ".yml"):
+            import yaml
+            data = yaml.safe_load(text) or {}
+        elif p.suffix == ".json":
+            import json
+            data = json.loads(text)
+        cfg_key = data.pop("config", data.pop("agent", p.stem))
+        return cfg_key, data
+
+    # Check if a configs/<key>.yaml file exists
+    key = str(config_path_or_key).lower().strip()
+    config_file = Path("configs") / f"{key}.yaml"
+    if config_file.exists():
+        import yaml
+        data = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+        cfg_key = data.pop("config", data.pop("agent", key))
+        return cfg_key, data
+
+    return key, data
+
+
+def get_agent(config: str | Path, **kwargs: Any) -> BaseBenchmarkAgent:
+    """Factory to instantiate benchmark agent by configuration key or YAML file."""
+    cfg_key, file_kwargs = load_agent_config(config)
+    merged_kwargs = {**file_kwargs, **kwargs}
+
+    cfg = cfg_key.lower().strip()
     if cfg in ("b0", "b0_baseline", "baseline"):
-        return B0BaselineAgent(**kwargs)
+        return B0BaselineAgent(**merged_kwargs)
     elif cfg in ("b1", "b1_retrieval", "retrieval", "rag"):
-        return B1RetrievalAgent(**kwargs)
+        return B1RetrievalAgent(**merged_kwargs)
     elif cfg in ("b2", "b2_multi_agent", "multi", "multi_agent"):
-        return B2MultiAgent(**kwargs)
+        return B2MultiAgent(**merged_kwargs)
     elif cfg in ("b3", "b3_routing", "routing"):
-        return B3RoutingAgent(**kwargs)
+        return B3RoutingAgent(**merged_kwargs)
     raise ValueError(f"Unknown agent configuration '{config}'. Choose from: b0, b1, b2, b3")

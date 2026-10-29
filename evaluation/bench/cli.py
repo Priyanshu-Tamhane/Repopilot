@@ -34,8 +34,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--agent",
         type=str,
         default="b0",
-        choices=["b0", "b1", "b2", "b3"],
-        help="Agent configuration: b0 (baseline), b1 (retrieval), b2 (multi-agent), b3 (routing)",
+        help="Agent configuration name: b0 (baseline), b1 (retrieval), b2 (multi-agent), b3 (routing)",
+    )
+    run_parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to YAML configuration file (e.g. configs/b1.yaml). Overrides --agent if specified.",
     )
     run_parser.add_argument(
         "--model",
@@ -98,16 +103,17 @@ def main() -> None:
     if args.subcommand == "run":
         out_dir = Path(args.out)
         out_dir.mkdir(parents=True, exist_ok=True)
+        agent_cfg = args.config or args.agent
 
         print("=" * 60)
-        print(f"RepoPilot Benchmark Run — Configuration: {args.agent.upper()}")
+        print(f"RepoPilot Benchmark Run — Configuration: {str(agent_cfg).upper()}")
         print(f"Dataset:  {args.dataset}")
         print(f"Model:    {args.model} ({args.provider})")
         print(f"Output:   {args.out}")
         print("=" * 60)
 
         harness = BenchmarkHarness(
-            agent_config=args.agent,
+            agent_config=agent_cfg,
             model=args.model,
             provider=args.provider,
             use_mock=args.mock,

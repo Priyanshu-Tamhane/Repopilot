@@ -1,0 +1,19 @@
+# RepoPilot Configuration: B1 (Retrieval / RAG)
+# Phase 5 — Controlled Benchmark Configurations
+config: b1
+name: b1_retrieval
+description: "Retrieval baseline: AST-entity chunking + TF-IDF cosine ranking, top-6 files + 1-hop dependencies, 8k char budget."
+model: "openai/gpt-oss-120b"
+provider: "groq"
+use_mock: true
+temperature: 0.0
+
+top_k: 6
+char_budget: 8000
+
+budget:
+  max_wall_time_s: 300.0
+  max_llm_calls: 1
+  max_tokens: 100000
+  max_tool_calls: 15
+  max_retries: 0

@@ -1,0 +1,17 @@
+# RepoPilot Configuration: B2 (Multi-Agent System)
+# Phase 5 — Controlled Benchmark Configurations
+config: b2
+name: b2_multi_agent
+description: "Role decomposition: Planner, Researcher, Implementer, Tester, Debugger, Reviewer with shared state & self-correction."
+model: "openai/gpt-oss-120b"
+provider: "groq"
+use_mock: true
+temperature: 0.0
+max_retries: 3
+
+budget:
+  max_wall_time_s: 300.0
+  max_llm_calls: 15
+  max_tokens: 100000
+  max_tool_calls: 30
+  max_retries: 3

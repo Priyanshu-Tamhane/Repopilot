@@ -125,7 +125,7 @@ def _run_tests_local(repo_path: Path, timeout_s: int = 60) -> tuple[int, int, st
     import sys
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-o", "addopts="],
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:deepeval", "-o", "addopts="],
             cwd=str(repo_path),
             capture_output=True,
             text=True,

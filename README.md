@@ -189,8 +189,8 @@ Phase 4 of the reproducible benchmark roadmap introduces a unified benchmark har
 # Run B0 (naive baseline) against the full dataset, mock LLM
 repopilot-bench run --dataset dataset/tasks.jsonl --agent b0 --mock
 
-# Run B1 (retrieval) with limit for smoke testing
-repopilot-bench run --dataset dataset/tasks.jsonl --agent b1 --limit 3
+# Run via YAML config preset (Phase 5)
+repopilot-bench run --dataset dataset/tasks.jsonl --config configs/b1.yaml --limit 3
 
 # Real LLM (requires GROQ_API_KEY)
 repopilot-bench run --dataset dataset/tasks.jsonl --agent b3 --provider groq --model llama-3.3-70b-versatile
@@ -204,6 +204,7 @@ repopilot-bench report --results evaluation/results --out evaluation/results/rep
 ```
 
 Agent configs: `b0` (naive baseline), `b1` (retrieval/RAG), `b2` (multi-agent), `b3` (model routing).  
+Config presets: [`configs/b0.yaml`](configs/b0.yaml), [`configs/b1.yaml`](configs/b1.yaml), [`configs/b2.yaml`](configs/b2.yaml), [`configs/b3.yaml`](configs/b3.yaml).  
 Raw JSON records land in `evaluation/results/`. Each record contains: run_id, task_id, agent_config, model, tokens, cost, patch, evaluation results, and a full trace.
 
 ## Tests
@@ -214,6 +215,7 @@ pytest tests/test_api.py -v
 pytest tests/test_baseline_e2e.py -v  # builds a dummy repo and solves one issue
 pytest tests/test_benchmark.py -v     # dataset validity (bugs fail pre-fix) + metrics math + 3-task mock run
 pytest tests/test_benchmark_harness.py -v  # Phase 4 harness: agent factory, schema, workspace, report, CLI
+pytest tests/test_phase5_configs.py -v     # Phase 5: controlled configurations (B0-B3) & YAML loading
 pytest tests/test_retrieval.py -v     # AST + graph + hit@6 >=18/20 + Exp2 mini-mock with retrieval trace
 pytest tests/test_multi_agent.py -v   # Phase 4 multi-agent sub-agent team & repair loop
 pytest tests/test_router.py -v        # Phase 5 model router, complexity scoring & escalation
